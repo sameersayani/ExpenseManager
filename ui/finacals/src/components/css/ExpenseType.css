@@ -1,0 +1,16 @@
+.radio-group {
+    display: flex;
+    flex-wrap: wrap; /* Allows wrapping to the next row */
+    gap: 1rem; /* Adds space between radio buttons */
+  }
+  
+  .radio-item {
+    flex: 1 1 22%; /* Each radio button takes up approximately 22% of the row, fitting 4 per row */
+    display: flex;
+    align-items: center;
+  }
+  
+  .radio-item label {
+    margin-left: 0.5rem; /* Adds space between the radio button and the label */
+  }
+  

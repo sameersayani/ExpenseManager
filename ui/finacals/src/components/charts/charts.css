@@ -1,0 +1,25 @@
+select {
+    margin: 20px;
+    padding: 10px;
+    font-size: 16px;
+    border-radius: 5px;
+  }
+
+.chart-container {
+    display: flex;              /* Enables flexbox */
+    justify-content: center;    /* Centers horizontally */
+    align-items: flex-start;        /* Centers vertically */
+    height: 100vh;              /* Full height of the viewport */
+  }
+.chart-container .pie {
+    width: 600px;
+    height: 550px;
+}
+.chart-container .bar {
+    width: 1000px;
+    height: 1000px;
+}
+.chart-container .line {
+    width: 1050px;
+    height: 1050px;
+}

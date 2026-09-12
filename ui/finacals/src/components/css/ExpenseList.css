@@ -1,0 +1,20 @@
+.fixed-table-container {
+    max-height: 400px; /* Set max height for scroll */
+    overflow-y: auto; /* Enable vertical scrolling */
+    position: relative;
+  }
+  
+  .table thead {
+    position: sticky;
+    top: 0;
+    background: white; /* Keep header visible */
+    z-index: 10;
+  }
+  
+  .table tfoot {
+    position: sticky;
+    bottom: 0;
+    background: white; /* Keep footer visible */
+    z-index: 10;
+  }
+  

@@ -1,0 +1,3 @@
+PassengerEnabled on
+PassengerAppRoot /home/daycare1/fastapi-react/api
+PassengerPython /home/daycare1/fastapi-react/venv/bin/python3
