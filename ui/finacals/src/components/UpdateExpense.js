@@ -132,18 +132,26 @@ const UpdateExpenseForm = ({ id, onCancel }) => {
     <div className="max-w-2xl mx-auto bg-white p-8 rounded-lg shadow-md space-y-6">
       <h2 className="text-2xl font-bold text-gray-800 mb-4">Update Expense</h2>
       {typeof error === "string" && <p className="text-red-500 text-sm mb-2">{error}</p>}
-      {Object.values(errors).map((err, index) => (
-        <p key={index} className="text-red-500 text-sm mb-2"><strong>{err}</strong></p>
-      ))}
+      {Object.keys(errors).length > 0 && (
+        <div className="text-red-500 text-sm mb-2" role="alert">
+          {Object.values(errors).map((validationError, index) => (
+            <p key={index} className="mb-1"><strong>{validationError}</strong></p>
+          ))}
+        </div>
+      )}
       {successMessage && <p className="text-green-500 text-sm mb-2">{successMessage}</p>}
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <ExpenseTypeist onExpenseTypeChange={handleExpenseTypeChange} selectedType={formData.expense_type} />
+      <form onSubmit={handleSubmit} noValidate className="space-y-6">
+        <ExpenseTypeist
+          onExpenseTypeChange={handleExpenseTypeChange}
+          selectedType={formData.expense_type}
+          errorMessage={errors.expense_type}
+        />
         <DatePicker selectedDate={formData.date} onChange={handleDateChange} />
         <input type="text" name="name" placeholder="Product / Service Name" value={formData.name} onChange={handleInputChange} className="w-full p-3 border rounded-md" />
         <input type="number" name="quantity_purchased" placeholder="Quantity" value={formData.quantity_purchased} onChange={handleInputChange} className="w-full p-3 border rounded-md" />
         <input type="number" name="unit_price" placeholder="Unit Price" value={formData.unit_price} onChange={handleInputChange} className="w-full p-3 border rounded-md" />
         <input type="number" name="amount" placeholder="Amount" value={formData.amount} onChange={handleInputChange} className="w-full p-3 border rounded-md" />
-        <label className="text-sm font-medium text-gray-700">Really need?</label>
+        <label className="text-sm font-medium text-gray-700">Do you really need this?</label>
         <label className="flex items-center space-x-2">
           <input
             type="radio"
@@ -175,11 +183,6 @@ const UpdateExpenseForm = ({ id, onCancel }) => {
         > 
           Cancel
         </button>
-        {typeof error === "string" && <p className="text-red-500 text-sm mb-2">{error}</p>}
-      {Object.values(errors).map((err, index) => (
-        <p key={index} className="text-red-500 text-sm mb-2"><strong>{err}</strong></p>
-      ))}
-      {successMessage && <p className="text-green-500 text-sm mb-2">{successMessage}</p>}
       </form>
 
       {showModal && (

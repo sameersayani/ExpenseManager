@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import "./css/ExpenseType.css";
 import {API_BASE_URL} from "../config";
 
-const ExpenseTypeList = ({ onExpenseTypeChange, selectedType }) => {
+const ExpenseTypeList = ({ onExpenseTypeChange, selectedType, errorMessage }) => {
   const [expenseTypes, setExpenseTypes] = useState([]);
   const [error, setError] = useState(null);
 
@@ -32,27 +32,25 @@ const ExpenseTypeList = ({ onExpenseTypeChange, selectedType }) => {
   }
 
   return (
-    <div className="p-4 bg-white shadow-md rounded-md border border-gray-300">
-      <h3 className="text-lg font-semibold text-gray-800 mb-4">Select Expense Type</h3>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div className="expense-type-selector">
+      <label htmlFor="expense-type" className="expense-type-selector__label">
+        Expense Type
+      </label>
+      <select
+        id="expense-type"
+        name="expense_type"
+        value={selectedType || ""}
+        onChange={(event) => onExpenseTypeChange(event.target.value ? Number(event.target.value) : null)}
+        className="expense-type-selector__select"
+      >
+        <option value="" disabled>Select expense type</option>
         {expenseTypes.map((type) => (
-          <label
-            key={type.id}
-            className="flex items-center space-x-2 p-2 rounded-md border hover:bg-blue-50 cursor-pointer"
-          >
-            <input
-              id={`expense-type-${type.id}`}
-              type="radio"
-              name="expense_type"
-              value={type.id}
-              checked={selectedType === type.id} // Check if this radio button should be selected
-              onChange={() => onExpenseTypeChange(type.id)}
-              className="form-radio text-blue-500 focus:ring-blue-500"
-            />
-            <span className="text-sm font-medium text-gray-700">{type.name}</span>
-          </label>
+          <option key={type.id} value={type.id}>
+            {type.name}
+          </option>
         ))}
-      </div>
+      </select>
+      {errorMessage && <p className="expense-type-selector__error">{errorMessage}</p>}
     </div>
   );
 };

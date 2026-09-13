@@ -138,8 +138,12 @@ const AddExpenseForm = () => {
 
       {successMessage && <p className="text-green-500 text-sm mb-2">{successMessage}</p>}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <ExpenseTypeist onExpenseTypeChange={handleExpenseTypeChange} selectedType={formData.expense_type} />
+      <form onSubmit={handleSubmit} noValidate className="space-y-6">
+        <ExpenseTypeist
+          onExpenseTypeChange={handleExpenseTypeChange}
+          selectedType={formData.expense_type}
+          errorMessage={errors.expense_type}
+        />
         <DatePicker selectedDate={formData.date} onChange={handleDateChange} />
         <input type="text" name="name" placeholder="Product / Service Purchased" value={formData.name} onChange={handleInputChange} className="w-full p-3 border rounded-md" />
         <label htmlFor="quantity_purchased" className="block text-sm font-medium text-gray-700">
@@ -154,7 +158,7 @@ const AddExpenseForm = () => {
             Amount
           </label>
         <input type="number" name="amount" placeholder="Amount" value={formData.amount} onChange={handleInputChange} className="w-full p-3 border rounded-md" />
-        <label className="text-sm font-medium text-gray-700">Really need?</label>
+        <label className="text-sm font-medium text-gray-700">Do you really need this?</label>
         <label className="flex items-center space-x-2">
           <input
             type="radio"

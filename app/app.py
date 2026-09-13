@@ -19,8 +19,16 @@ from app.models import (
     DailyExpense, DailyExpenseWithExpenseType, UserInfo
 )
 from app.ai_service import run_chat
-from app.schemas_ai import ChatRequest, DeleteConfirmationRequest
-from app.services.daily_expenses import delete_expense as delete_expense_service
+from app.schemas_ai import (
+    ChatRequest,
+    ClassificationConfirmationRequest,
+    DeleteConfirmationRequest,
+)
+from app.services.daily_expenses import (
+    create_expense as create_expense_service,
+    delete_expense as delete_expense_service,
+    update_expense as update_expense_service,
+)
 from starlette.requests import Request
 
 from dotenv import dotenv_values
@@ -197,6 +205,37 @@ async def confirm_ai_delete(
     user_info = await get_or_create_user_info(user)
     await delete_expense_service(user_info, confirmation.expense_id)
     return {"status": "OK", "message": f"Expense #{confirmation.expense_id} deleted"}
+
+@app.post("/api/ai/confirm-classification")
+async def confirm_ai_classification(
+    confirmation: ClassificationConfirmationRequest,
+    user: dict = Depends(get_current_user),
+):
+    user_info = await get_or_create_user_info(user)
+    arguments = dict(confirmation.arguments)
+    arguments["really_needed"] = confirmation.really_needed
+    arguments.pop("classification_reason", None)
+
+    if confirmation.operation == "create":
+        expense = await create_expense_service(
+            user_info,
+            DailyExpenseCreate(
+                date=datetime.fromisoformat(arguments["date"]),
+                name=arguments["name"],
+                quantity_purchased=arguments.get("quantity_purchased", 1),
+                unit_price=arguments.get("unit_price"),
+                amount=arguments.get("amount"),
+                really_needed=arguments["really_needed"],
+            ),
+            arguments["expense_type_id"],
+        )
+    else:
+        expense_id = arguments.pop("expense_id")
+        if "date" in arguments:
+            arguments["date"] = datetime.fromisoformat(arguments["date"])
+        expense = await update_expense_service(user_info, expense_id, arguments)
+
+    return {"status": "OK", "message": "Expense saved", "data": expense}
 
 # Expense Type Endpoints
 @app.get("/expensetype")

@@ -1,16 +1,37 @@
-.radio-group {
-    display: flex;
-    flex-wrap: wrap; /* Allows wrapping to the next row */
-    gap: 1rem; /* Adds space between radio buttons */
-  }
-  
-  .radio-item {
-    flex: 1 1 22%; /* Each radio button takes up approximately 22% of the row, fitting 4 per row */
-    display: flex;
-    align-items: center;
-  }
-  
-  .radio-item label {
-    margin-left: 0.5rem; /* Adds space between the radio button and the label */
-  }
+.expense-type-selector {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+}
+
+.expense-type-selector__label {
+  color: #475569;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.expense-type-selector__select {
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #17212b;
+  font-size: 0.95rem;
+}
+
+.expense-type-selector__select:focus {
+  border-color: #2563eb;
+  outline: 3px solid rgba(37, 99, 235, 0.15);
+}
+
+.expense-type-selector__error {
+  margin: 0;
+  color: #b91c1c;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
   

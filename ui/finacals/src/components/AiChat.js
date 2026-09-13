@@ -19,6 +19,7 @@ const AiChat = () => {
   const [messages, setMessages] = useState([initialMessage]);
   const [input, setInput] = useState("");
   const [pendingDelete, setPendingDelete] = useState(null);
+  const [pendingClassification, setPendingClassification] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -51,6 +52,30 @@ const AiChat = () => {
 
       setMessages((current) => [...current, { role: "assistant", content: result.message, tool_calls: result.tool_calls }]);
       setPendingDelete(result.pending_delete || null);
+      setPendingClassification(result.pending_classification || null);
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const confirmClassification = async (reallyNeeded) => {
+    if (!pendingClassification) return;
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/ai/confirm-classification`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...pendingClassification, really_needed: reallyNeeded }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.detail || "Could not save expense");
+      setMessages((current) => [...current, { role: "assistant", content: result.message }]);
+      setPendingClassification(null);
+      window.dispatchEvent(new Event("expenses:changed"));
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -126,6 +151,18 @@ const AiChat = () => {
           <span>Confirm deletion of expense #{pendingDelete.expense_id}?</span>
           <button type="button" onClick={confirmDelete} disabled={loading}>Delete</button>
           <button type="button" onClick={() => setPendingDelete(null)} disabled={loading}>Cancel</button>
+        </div>
+      )}
+
+      {pendingClassification && (
+        <div className="ai-chat__confirm">
+          <span>
+            AI suggestion: <strong>{pendingClassification.really_needed ? "Really needed" : "Not really needed"}</strong>.
+            <br />{pendingClassification.reason}
+          </span>
+          <button type="button" onClick={() => confirmClassification(pendingClassification.really_needed)} disabled={loading}>Confirm and save</button>
+          <button type="button" onClick={() => confirmClassification(!pendingClassification.really_needed)} disabled={loading}>Save as {pendingClassification.really_needed ? "not needed" : "needed"}</button>
+          <button type="button" onClick={() => setPendingClassification(null)} disabled={loading}>Cancel</button>
         </div>
       )}
 

@@ -16,7 +16,7 @@ except ImportError:
         def tool(self, function):
             return _FallbackTool(function)
 
-from app.models import DailyExpenseCreate, UserInfo
+from app.models import DailyExpenseCreate, ExpenseType, UserInfo
 from app.services.daily_expenses import (
     create_expense,
     delete_expense,
@@ -65,6 +65,13 @@ async def search_user_expenses(name: str) -> dict[str, Any]:
 
 
 @mcp.tool
+async def list_expense_types() -> dict[str, Any]:
+    """List expense types so an expense can be created using a type name instead of guessing its ID."""
+    types = await ExpenseType.all().order_by("name")
+    return {"data": [{"id": item.id, "name": item.name} for item in types]}
+
+
+@mcp.tool
 async def get_expense_report(year: int, month: int | None = None) -> dict[str, Any]:
     """Return totals and expense details for the authenticated user's selected year or month."""
     return {"data": await expense_report(_user(), year, month)}
@@ -79,6 +86,7 @@ async def create_user_expense(
     unit_price: float | None = None,
     amount: float | None = None,
     really_needed: bool = False,
+    classification_reason: str | None = None,
 ) -> dict[str, Any]:
     """Create an expense for the authenticated user. Provide exactly one positive money field."""
     payload = DailyExpenseCreate(
@@ -102,6 +110,7 @@ async def update_user_expense(
     unit_price: float | None = None,
     amount: float | None = None,
     really_needed: bool | None = None,
+    classification_reason: str | None = None,
 ) -> dict[str, Any]:
     """Update an authenticated user's expense. Provide exactly one positive money field after the update."""
     changes = {
@@ -131,6 +140,7 @@ async def dispatch_tool(name: str, arguments: dict[str, Any], user: UserInfo) ->
             "list_user_expenses": list_user_expenses,
             "get_user_expense": get_user_expense,
             "search_user_expenses": search_user_expenses,
+            "list_expense_types": list_expense_types,
             "get_expense_report": get_expense_report,
             "create_user_expense": create_user_expense,
             "update_user_expense": update_user_expense,

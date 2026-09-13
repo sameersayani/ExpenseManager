@@ -20,3 +20,9 @@ class ChatResponse(BaseModel):
 
 class DeleteConfirmationRequest(BaseModel):
     expense_id: int
+
+
+class ClassificationConfirmationRequest(BaseModel):
+    operation: Literal["create", "update"]
+    arguments: dict[str, Any]
+    really_needed: bool

@@ -6,12 +6,16 @@ import httpx
 
 from app.mcp_server import dispatch_tool
 from app.models import UserInfo
+from app.expense_classification import classify_expense
 
 SYSTEM_PROMPT = """You are the ExpenseManager assistant.
 You may manage only the authenticated user's daily expenses through the available tools.
-Never ask for or invent user IDs, emails, audit fields, or database details.
+Never ask for or invent user IDs, expense type IDs, emails, audit fields, or database details.
+When the user gives an expense type name, call list_expense_types and select the matching ID. Ask the user only if there is no clear match.
+Essential guardrails are enforced by the application. Treat entertainment, games, leisure, luxury, vacations, and hobbies as not really needed by default. Treat housing, utilities, food, medicine, medical tests, education, and transport as really needed. When uncertain, default to not really needed.
 For money fields, exactly one of unit_price or amount must be positive.
-Deletion always requires explicit confirmation from the user; do not claim a deletion happened when a confirmation is pending.
+Deletion and AI essential/non-essential classifications always require explicit confirmation from the user; do not claim a mutation happened when a confirmation is pending.
+When creating or updating an expense, infer whether it is really needed and include a short classification_reason.
 Keep answers concise and report the result of every tool action.
 """
 
@@ -58,6 +62,14 @@ TOOL_SCHEMAS = [
     {
         "type": "function",
         "function": {
+            "name": "list_expense_types",
+            "description": "List available expense types and IDs. Use this before creating an expense when the user provides a type name.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "create_user_expense",
             "description": "Create an expense. Exactly one positive value must be supplied for unit_price or amount.",
             "parameters": {
@@ -70,6 +82,7 @@ TOOL_SCHEMAS = [
                     "unit_price": {"type": "number"},
                     "amount": {"type": "number"},
                     "really_needed": {"type": "boolean"},
+                    "classification_reason": {"type": "string"},
                 },
                 "required": ["date", "name", "expense_type_id"],
             },
@@ -91,6 +104,7 @@ TOOL_SCHEMAS = [
                     "unit_price": {"type": "number"},
                     "amount": {"type": "number"},
                     "really_needed": {"type": "boolean"},
+                    "classification_reason": {"type": "string"},
                 },
                 "required": ["expense_id"],
             },
@@ -165,6 +179,26 @@ async def run_chat(messages: list[dict[str, str]], user: UserInfo) -> dict[str, 
                         "message": f"Please confirm deletion of expense #{expense_id}.",
                         "tool_calls": tool_activity,
                         "pending_delete": {"expense_id": expense_id},
+                    }
+                if name in {"create_user_expense", "update_user_expense"}:
+                    classification_name = arguments.get("name", "")
+                    classification = classify_expense(classification_name)
+                    suggested = classification.really_needed
+                    operation = "create" if name == "create_user_expense" else "update"
+                    reason = classification.reason
+                    return {
+                        "message": (
+                            f"I classified this expense as "
+                            f"{'really needed' if suggested else 'not really needed'}. "
+                            f"{reason} Please confirm the classification before I save it."
+                        ),
+                        "tool_calls": tool_activity,
+                        "pending_classification": {
+                            "operation": operation,
+                            "arguments": arguments,
+                            "really_needed": suggested,
+                            "reason": reason,
+                        },
                     }
                 result = await dispatch_tool(name, arguments, user)
                 tool_activity.append({"name": name, "result": result})

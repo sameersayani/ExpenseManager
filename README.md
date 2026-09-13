@@ -131,3 +131,5 @@ AI_MAX_TOOL_CALLS=4
 Use a currently available Groq model that supports tool calling. Keep the Groq key only in the backend `.env`; do not add it to the React environment file.
 
 The first MCP tool set manages daily expenses only. Reads, searches, creates, and updates are available through chat. Deletes always require an explicit confirmation in the UI and remain scoped to the authenticated user.
+
+Expense classification guardrails are defined in `app/expense_classification.py` and enforced after the AI response. Known essential categories include housing, utilities, food, medicine, medical tests, education, and transport. Entertainment, games, leisure, luxury, vacations, and hobbies are classified as not really needed. Unknown purchases default to not really needed, and the user can still override the suggestion before saving.
