@@ -18,6 +18,9 @@ from app.models import (
     daily_expense_pydantic, daily_expense_pydantic_in,
     DailyExpense, DailyExpenseWithExpenseType, UserInfo
 )
+from app.ai_service import run_chat
+from app.schemas_ai import ChatRequest, DeleteConfirmationRequest
+from app.services.daily_expenses import delete_expense as delete_expense_service
 from starlette.requests import Request
 
 from dotenv import dotenv_values
@@ -174,6 +177,27 @@ def logout(request: Request, user: dict = Depends(get_current_user)):
 def health_check():
     return {"status": "API is working!"}
 
+@app.post("/api/ai/chat")
+async def ai_chat(chat_request: ChatRequest, user: dict = Depends(get_current_user)):
+    user_info = await get_or_create_user_info(user)
+    try:
+        result = await run_chat(
+            [message.model_dump() for message in chat_request.messages],
+            user_info,
+        )
+    except RuntimeError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
+    return JSONResponse(content=jsonable_encoder(result))
+
+@app.post("/api/ai/confirm-delete")
+async def confirm_ai_delete(
+    confirmation: DeleteConfirmationRequest,
+    user: dict = Depends(get_current_user),
+):
+    user_info = await get_or_create_user_info(user)
+    await delete_expense_service(user_info, confirmation.expense_id)
+    return {"status": "OK", "message": f"Expense #{confirmation.expense_id} deleted"}
+
 # Expense Type Endpoints
 @app.get("/expensetype")
 async def get_expensetype(user: dict = Depends(get_current_user)):
@@ -272,9 +296,14 @@ async def search_expense_by_product(name: str, user: dict = Depends(get_current_
     user_info = await get_or_create_user_info(user)
 
     if len(name) < 3:
-        raise HTTPException(status_code=400, detail="Product name must be at least 4 characters long")
+        raise HTTPException(status_code=400, detail="Search must contain at least 3 characters")
 
-    expenses = await DailyExpense.filter(Q(name__icontains=name) & Q(user_id=user_info.id)).select_related("expense_type")
+    expenses = await DailyExpense.filter(
+        Q(user_id=user_info.id) & (
+            Q(name__icontains=name) |
+            Q(date__startswith=name)
+        )
+    ).select_related("expense_type")
 
     if not expenses:
         raise HTTPException(status_code=404, detail="No matching expenses found")
@@ -284,7 +313,19 @@ async def search_expense_by_product(name: str, user: dict = Depends(get_current_
     for expense in expense_data:
         expense["user_id"] = user_info.id
 
-    return JSONResponse(content={"status": "OK", "data": expense_data})
+    total_expenditure = sum(float(expense.get("amount") or 0) for expense in expense_data)
+    non_essential_expenditure = sum(
+        float(expense.get("amount") or 0)
+        for expense in expense_data
+        if not expense.get("really_needed", False)
+    )
+    return JSONResponse(content={
+        "status": "OK",
+        "actual_total_expenditure": format_indian_currency(total_expenditure),
+        "non_essential_expenditure": format_indian_currency(non_essential_expenditure),
+        "essential_expenditure": format_indian_currency(total_expenditure - non_essential_expenditure),
+        "data": expense_data,
+    })
 
 @app.post('/dailyexpense/{expensetype_id}')
 async def add_expense(

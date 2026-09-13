@@ -2,6 +2,15 @@
   text-align: center;
 }
 
+.app-shell {
+  min-height: 100vh;
+  background: #ffffff;
+}
+
+.app-content {
+  width: 100%;
+}
+
 .App-logo {
   height: 40vmin;
   pointer-events: none;

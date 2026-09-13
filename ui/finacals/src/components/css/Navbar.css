@@ -1,0 +1,214 @@
+.app-navbar {
+  padding: 10px 18px;
+  background: #17212b !important;
+  border-bottom: 1px solid #314252;
+}
+
+.app-navbar__inner {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.app-navbar__brand {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0;
+}
+
+.app-navbar__brand img {
+  display: block;
+  width: 150px;
+  height: 48px;
+  object-fit: contain;
+}
+
+.app-navbar__form {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
+}
+
+.app-navbar__links {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  background: #243241;
+  border: 1px solid #3a4b5e;
+  border-radius: 8px;
+}
+
+.app-navbar__link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 7px 12px;
+  border-radius: 5px;
+  color: #dbeafe;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.app-navbar__link span {
+  margin-right: 5px;
+  font-size: 1rem;
+  font-weight: 400;
+}
+
+.app-navbar__link:hover {
+  color: white;
+  background: #33465a;
+}
+
+.app-navbar__link--primary {
+  color: white;
+  background: #2563eb;
+}
+
+.app-navbar__link--ai {
+  color: #f5d0fe;
+}
+
+.app-navbar__link--secondary {
+  color: #bbf7d0;
+}
+
+.app-navbar__search {
+  display: flex;
+  flex: 1 1 280px;
+  gap: 8px;
+  min-width: 180px;
+}
+
+.app-navbar__form input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 38px;
+  margin: 0 !important;
+  border: 1px solid #718096;
+  border-radius: 6px;
+}
+
+.app-navbar__search-button {
+  min-height: 40px;
+  margin: 0 !important;
+  padding: 7px 14px;
+  border: 1px solid #60a5fa !important;
+  border-radius: 6px;
+  color: #dbeafe;
+  background: transparent;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.app-navbar__search-button:hover {
+  color: white;
+  background: #1d4ed8;
+}
+
+.app-navbar__account {
+  flex: 0 0 auto;
+  gap: 16px;
+}
+
+.app-navbar__welcome {
+  color: #f8fafc !important;
+  font-size: 0.9rem !important;
+  font-weight: 700;
+  margin: 0 !important;
+  white-space: nowrap;
+}
+
+.app-navbar__logout,
+.app-navbar__login {
+  color: #fbbf24 !important;
+  font-size: 0.85rem !important;
+  font-weight: 700;
+  margin: 0 !important;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.app-navbar__logout:hover,
+.app-navbar__login:hover {
+  color: #fde68a !important;
+}
+
+@media (max-width: 1199px) {
+  .app-navbar__inner {
+    flex-wrap: wrap;
+  }
+
+  .app-navbar__form {
+    order: 3;
+    flex-basis: 100%;
+    gap: 12px;
+  }
+
+  .app-navbar__account {
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 575px) {
+  .app-navbar {
+    padding: 10px 12px;
+  }
+
+  .app-navbar__inner {
+    gap: 10px;
+  }
+
+  .app-navbar__brand img {
+    width: 126px;
+    height: 40px;
+  }
+
+  .app-navbar__account {
+    gap: 8px;
+    font-size: 0.75rem;
+  }
+
+  .app-navbar__welcome {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .app-navbar__form {
+    display: grid !important;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .app-navbar__links,
+  .app-navbar__search {
+    width: 100%;
+  }
+
+  .app-navbar__links {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .app-navbar__link,
+  .app-navbar__form button,
+  .app-navbar__form input {
+    width: 100%;
+    min-width: 0;
+    margin: 0 !important;
+    padding: 8px 6px !important;
+    font-size: 0.78rem;
+  }
+
+  .app-navbar__search-button {
+    width: auto !important;
+  }
+}

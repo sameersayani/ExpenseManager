@@ -88,3 +88,46 @@ npm run build
 ## Security
 
 Never commit `.env` files, OAuth client secrets, session keys, database credentials, or other private values. If a secret is accidentally committed, revoke or rotate it immediately, remove it from Git history, and update the local environment file.
+
+## AI Chat and MCP
+
+The optional Ask AI page is available at `/ask-ai`. The browser calls the authenticated FastAPI chat endpoint; AI credentials and MCP tool execution remain on the backend.
+
+Add these settings to the backend `.env` to enable an OpenAI-compatible provider:
+
+```dotenv
+AI_ENABLED=true
+AI_BASE_URL=https://api.openai.com/v1
+AI_API_KEY=replace-with-your-server-side-key
+AI_MODEL=gpt-4o-mini
+AI_MAX_TOOL_CALLS=4
+```
+
+For a free local setup, install [Ollama](https://ollama.com), download a model, and use:
+
+```powershell
+ollama pull llama3.2
+```
+
+```dotenv
+AI_ENABLED=true
+AI_BASE_URL=http://127.0.0.1:11434/v1
+AI_MODEL=llama3.2
+AI_MAX_TOOL_CALLS=4
+```
+
+Ollama runs locally and does not require `AI_API_KEY`. The computer needs enough memory to run the selected model.
+
+Groq is another option with an OpenAI-compatible API and a free usage tier subject to rate and quota limits. Create a Groq API key, then configure:
+
+```dotenv
+AI_ENABLED=true
+AI_BASE_URL=https://api.groq.com/openai/v1
+AI_API_KEY=your-groq-api-key
+AI_MODEL=your-groq-tool-capable-model-id
+AI_MAX_TOOL_CALLS=4
+```
+
+Use a currently available Groq model that supports tool calling. Keep the Groq key only in the backend `.env`; do not add it to the React environment file.
+
+The first MCP tool set manages daily expenses only. Reads, searches, creates, and updates are available through chat. Deletes always require an explicit confirmation in the UI and remain scoped to the authenticated user.

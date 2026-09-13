@@ -8,6 +8,7 @@ import ExpensesList from "./components/ExpensesList";
 import { UpdateExpenseProvider } from "./UpdateExpenseContext";
 import UpdateExpenseForm from "./components/UpdateExpense";
 import Dashboard from "./components/Dashboard";
+import AiChat from "./components/AiChat";
 import Parent, { Child } from "./test";
 import {API_BASE_URL} from "./config";
 
@@ -57,25 +58,24 @@ function App() {
   };
 
   return (
-    <div>
+    <div className="app-shell">
       {/* {isAuthenticated ? ( */}
         <ExpenseTypeProvider>
           <ExpenseProvider>
             <NavBar />
-            <div className="row">
-              <div className="col-sm-10 col-xm-12 mr-auto ml-auto mt-4 mb-4">
+            <div className="app-content">
                 <UpdateExpenseProvider>
                   <Routes>
                     <Route path="/" element={<ExpensesList />} />
                     <Route path="/addExpense" element={<AddExpenseForm />} />
                     <Route path="/updateExpense/:id" element={<UpdateExpenseForm />} />
                     <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/ask-ai" element={<AiChat />} />
                     <Route path="/test" element={<Parent />} />
                     <Route path="/test" element={<Child />} />
                   </Routes>
                 </UpdateExpenseProvider>
               </div>
-            </div>
           </ExpenseProvider>
         </ExpenseTypeProvider>
       {/* ) : (

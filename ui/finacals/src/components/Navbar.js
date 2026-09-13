@@ -1,12 +1,14 @@
 import {react, useContext, useState, useEffect} from "react";
 import {Navbar, Nav, Form, FormControl, Button, Badge} from 'react-bootstrap';
-import {Link} from  "react-router-dom";
+import {Link, useNavigate} from  "react-router-dom";
 import { ExpenseContext } from "../ExpenseContext";
 import {API_BASE_URL} from "../config";
+import "./css/Navbar.css";
 
 const NavBar = () => {
     const [search, setSearch] = useState("");
-    const { expense, setExpense, totals, setSearchError, setNavbarSearch } = useContext(ExpenseContext);
+    const navigate = useNavigate();
+    const { expense, setExpense, totals, setTotals, setSearchError, setNavbarSearch } = useContext(ExpenseContext);
     const [user, setUser] = useState(null);
     
     const updateSearch = (e) => {
@@ -29,8 +31,14 @@ const NavBar = () => {
   
         if (result.status === "OK" && result.data.length > 0) {
           setExpense({"data" : [...result.data]})
+          setTotals({
+            actual_total_expenditure: Number(result.actual_total_expenditure?.replace(/,/g, "")) || 0,
+            non_essential_expenditure: Number(result.non_essential_expenditure?.replace(/,/g, "")) || 0,
+            essential_expenditure: Number(result.essential_expenditure?.replace(/,/g, "")) || 0,
+          });
           setSearchError("");
           setNavbarSearch("y");
+          navigate("/");
         } else {
           setExpense([]);
           setSearchError("No matching expenses found");
@@ -68,15 +76,15 @@ const NavBar = () => {
   };
 
     return(
-        <Navbar bg="dark" expand="lg" variant="dark">
-        <div className="container-fluid">
+        <Navbar bg="dark" expand="lg" variant="dark" className="app-navbar">
+        <div className="container-fluid app-navbar__inner">
           {/* Brand */}
-          <Navbar.Brand href="/"> 
+          <Navbar.Brand href="/" className="app-navbar__brand">
           <img
             src="/logo.png"  // Make sure the logo is inside the "public" folder
             alt="Logo"
             width="150"
-            height="100"
+            height="48"
           />{" "}
           </Navbar.Brand>
   
@@ -87,48 +95,36 @@ const NavBar = () => {
           <Navbar.Collapse id="navbar-nav">
             
             {/* Right-Side Form */}
-            <Form className="d-flex align-items-center" 
-            style={{ width: '70%' }}
+            <Form className="app-navbar__form"
             onSubmit={filterExpense}
             inline="true">
-              Add New Expense
-              <Link
-                to="/addexpense"
-                className="rounded-md bg-blue-600 py-2 px-4 border border-transparent text-center text-sm text-white transition-all shadow-md hover:shadow-lg focus:bg-blue-700 focus:shadow-none active:bg-blue-700 hover:bg-blue-700 active:shadow-none disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none ml-2"
-                style={{ whiteSpace: 'nowrap' }}
-              >
-                Add Expense
-              </Link>
-              <Navbar.Brand>
-                <Link
-                to="dashboard"
-                className="rounded-md bg-green-600 py-2 px-4 border border-transparent text-center text-sm text-white transition-all shadow-md hover:shadow-lg focus:bg-green-700 focus:shadow-none active:bg-green-700 hover:bg-green-700 active:shadow-none disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none ml-2"
-                style={{ whiteSpace: 'nowrap' }}
-                >
-                Show Charts
+              <nav className="app-navbar__links" aria-label="Primary navigation">
+                <Link to="/addexpense" className="app-navbar__link app-navbar__link--primary">
+                  <span aria-hidden="true">+</span> Add Expense
                 </Link>
-                </Navbar.Brand>
-              Search Bar
-              <FormControl
-                type="text"
-                placeholder="Search by product name"
-                className="me-3"
-                style={{ minWidth: '10px' }}
-                value={search}
-                onChange={updateSearch}
-              />
-  
-              {/* Search Button */}
-              <Button type="submit" 
-              variant="outline-primary"
-              onChange={updateSearch}
-              >
-                Search
-              </Button>
+                <Link to="/ask-ai" className="app-navbar__link app-navbar__link--ai">
+                  Ask AI
+                </Link>
+                <Link to="/dashboard" className="app-navbar__link app-navbar__link--secondary">
+                  Charts
+                </Link>
+              </nav>
+              <div className="app-navbar__search">
+                <FormControl
+                  type="text"
+                  placeholder="Search expenses"
+                  aria-label="Search expenses by product name"
+                  value={search}
+                  onChange={updateSearch}
+                />
+                <Button type="submit" className="app-navbar__search-button">
+                  Search
+                </Button>
+              </div>
             </Form>
           </Navbar.Collapse>
         </div>
-        <div className="d-flex align-items-center">
+        <div className="app-navbar__account d-flex align-items-center">
                 {user ? (
                     <div className="d-flex align-items-center">
                         {/* Welcome Message */}

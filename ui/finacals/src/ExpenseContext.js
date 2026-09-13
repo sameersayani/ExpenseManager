@@ -39,6 +39,32 @@ export const ExpenseProvider = (props) => {
       .catch((error) => console.error("Error fetching expenses:", error));
   }, [filters]); 
 
+  useEffect(() => {
+    const refreshExpenses = () => {
+      const queryParams = new URLSearchParams();
+      if (filters.month) queryParams.append("month", filters.month);
+      if (filters.year) queryParams.append("year", filters.year);
+
+      fetch(`${API_BASE_URL}/dailyexpense?${queryParams.toString()}`, {
+        method: "GET",
+        credentials: "include"
+      })
+        .then((response) => response.json())
+        .then((data) => {
+          setExpense({ data: data.data || [] });
+          setTotals({
+            actual_total_expenditure: Number(data.actual_total_expenditure?.replace(/,/g, "")) || 0,
+            non_essential_expenditure: Number(data.non_essential_expenditure?.replace(/,/g, "")) || 0,
+            essential_expenditure: Number(data.essential_expenditure?.replace(/,/g, "")) || 0
+          });
+        })
+        .catch((error) => console.error("Error refreshing expenses:", error));
+    };
+
+    window.addEventListener("expenses:changed", refreshExpenses);
+    return () => window.removeEventListener("expenses:changed", refreshExpenses);
+  }, [filters]);
+
   return (
     <ExpenseContext.Provider value={{ expense, setExpense, totals, setTotals, filters, setFilters, searchError, setSearchError, navbarSearch, setNavbarSearch }}>
       {props.children}

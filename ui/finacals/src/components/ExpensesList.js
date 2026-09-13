@@ -20,7 +20,7 @@ const ExpensesList = () => {
   const currentDate = new Date();
   const currentMonth = currentDate.getMonth() + 1; // Months are 0-indexed
   const currentYear = currentDate.getFullYear();
-  const { expense, setExpense, totals, setTotals, filters, setFilters, searchError, setSearchError, navbarSearch, setNavbarSearch} = useContext(ExpenseContext);
+  const { expense, setExpense, totals, setTotals, filters, setFilters, searchError, setSearchError, setNavbarSearch} = useContext(ExpenseContext);
 
   const actualTotalExpenditure = totals?.actual_total_expenditure || "0";
   const nonEssentialExpenditure = totals?.non_essential_expenditure || "0";
@@ -152,11 +152,10 @@ const ExpensesList = () => {
   };
 
   return (
-    <div className="p-1">    
+    <main className="expense-page">
     {/* Filter Section */}
-    <div className="flex flex-col items-start space-y-4 mb-6">
-    <div className="p-1">
-    <div className="flex items-center space-x-4 mb-4">
+    <section className="expense-toolbar">
+    <div className="expense-filters">
       <div>
         <label htmlFor="month" className="block text-sm font-medium text-gray-700">
           Month
@@ -197,7 +196,7 @@ const ExpensesList = () => {
           ))}
         </select>
       </div>
-      <div className="flex flex-col min-h-[55px] justify-end">
+      <div className="expense-filter-action">
       <button
         onClick={handleSearch}
         className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 self-end"
@@ -205,7 +204,7 @@ const ExpensesList = () => {
         Search
       </button>
       </div>
-      <div className="flex flex-col min-h-[100px] justify-end">
+      <div className="expense-filter-action">
       {/* Download Report Button */}
         <button
           onClick={() => setDownloadModalOpen(true)}
@@ -221,9 +220,8 @@ const ExpensesList = () => {
         />  
       </div>
     </div>
-</div>
 
-      <p className="text-gray-600">
+      <p className="expense-filter-summary">
         Showing results for:{" "}
         <strong>
           {`Month: ${new Date(0, filters.month - 1).toLocaleString("en-US", {
@@ -231,11 +229,11 @@ const ExpensesList = () => {
           })}, Year: ${filters.year}`}
         </strong>
       </p>
-    </div>
+    </section>
 
-    {searchError && <p className="text-red-500">{searchError}</p>}
+    {searchError && <p className="expense-error">{searchError}</p>}
     {/* Expenses Table */}
-    <div className="fixed-table-container">
+    <div className="fixed-table-container expense-table-wrap">
       <Table striped bordered hover className="shadow-md">
         <thead>
           <tr>
@@ -273,7 +271,7 @@ const ExpensesList = () => {
             </tr>
           )}
         </tbody>
-        {expense?.data?.length > 0 && navbarSearch =="" ? (
+        {expense?.data?.length > 0 ? (
         <tfoot>
           <tr>
             <td colSpan={3}></td>
@@ -302,7 +300,7 @@ const ExpensesList = () => {
       onConfirm={handleDelete}
       itemName={expenseToDelete?.name || "this item"}
     />
-  </div>
+  </main>
   );
 };
 

@@ -2,17 +2,17 @@ import react from "react";
 
 const ExpenseRow = ({id, date, name, quantity_purchased, unit_price, amount, really_needed, handleDelete, handleUpdate, openModal }) => {
     return (
-        <tr>
+        <tr className="expense-row">
             <td>{date}</td>
             <td>{name}</td>
             <td>{quantity_purchased}</td>
             <td>{unit_price}</td>
             <td>{amount}</td>
             <td>{really_needed}</td>
-            <td>
-                <button onClick={() => handleUpdate(id)} className="btn btn-outline-info btn-sm ml-1 mr-2">Update</button>
+            <td className="expense-row__actions">
+                <button onClick={() => handleUpdate(id)} className="btn btn-outline-info btn-sm">Update</button>
                 <button
-                    className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600"
+                    className="btn btn-danger btn-sm"
                     onClick={() => openModal(id)}>
                 Delete
                 </button>
