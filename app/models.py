@@ -16,8 +16,6 @@ class DailyExpenseCreate(BaseModel):
     unit_price: float = 0.00
     amount: float = 0.00
     really_needed: bool = False
-    expense_type_id: int 
-    user_email: str
 
 class DailyExpenseUpdate(BaseModel):
     date: datetime  
@@ -36,11 +34,32 @@ class DailyExpense(Model):
     unit_price = fields.FloatField(max_digits=8, decimal_places=2, default=0.00)
     amount = fields.FloatField(max_digits=8, decimal_places=2, default=0.00)
     really_needed = fields.BooleanField(default = False)
-    expense_type = fields.ForeignKeyField('models.ExpenseType', 
-                                         related_name="typeof_expense")
-    user_email = fields.CharField(max_length=255)
+    expense_type = fields.ForeignKeyField(
+        'models.ExpenseType',
+        related_name="typeof_expense",
+        on_delete=fields.CASCADE,
+    )
+    user = fields.ForeignKeyField(
+        'models.UserInfo',
+        related_name="expenses",
+        source_field="user_id",
+        on_delete=fields.CASCADE,
+    )
+    createdon = fields.DatetimeField(auto_now_add=True)
+    createdby = fields.CharField(max_length=200)
+    updatedon = fields.DatetimeField(null=True)
+    updatedby = fields.CharField(max_length=200, null=True)
 
-class UserInfo(BaseModel):
+class UserInfo(Model):
+    id = fields.IntField(pk=True)
+    email = fields.CharField(max_length=256)
+    createdon = fields.DatetimeField(auto_now_add=True)
+    createdby = fields.CharField(max_length=200)
+
+    class Meta:
+        table = "userinfo"
+
+class AuthenticatedUser(BaseModel):
     sub: str
     email: str
     name: str
@@ -53,7 +72,11 @@ expensetpye_pydantic_in = pydantic_model_creator(ExpenseType, name="ExpenseTypeI
 daily_expense_pydantic = pydantic_model_creator(
     DailyExpense, 
     name="DailyExpense",
-    include=("id", "date", "name", "quantity_purchased", "unit_price", "amount", "really_needed", "expense_type", "user_email")
+    include=(
+        "id", "date", "name", "quantity_purchased", "unit_price", "amount",
+        "really_needed", "expense_type", "user_id", "createdon", "createdby",
+        "updatedon", "updatedby",
+    )
 )
 
 # Input model for creation or update (exclude readonly fields)

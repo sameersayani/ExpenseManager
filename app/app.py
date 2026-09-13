@@ -13,9 +13,10 @@ from fastapi.templating import Jinja2Templates
 from tortoise.contrib.fastapi import register_tortoise
 from app.models import (
     DailyExpenseUpdate,
+    DailyExpenseCreate,
     expensetpye_pydantic, expensetpye_pydantic_in, ExpenseType, ExpenseTypeUpdate,
     daily_expense_pydantic, daily_expense_pydantic_in,
-    DailyExpense, DailyExpenseWithExpenseType
+    DailyExpense, DailyExpenseWithExpenseType, UserInfo
 )
 from starlette.requests import Request
 
@@ -97,6 +98,17 @@ async def get_current_user(request: Request):
         raise HTTPException(status_code=401, detail="Not authenticated")
     return user
 
+async def get_or_create_user_info(user: dict) -> UserInfo:
+    email = user.get("email")
+    if not email:
+        raise HTTPException(status_code=401, detail="User authentication failed")
+
+    user_info = await UserInfo.get_or_none(email=email)
+    if user_info:
+        return user_info
+
+    return await UserInfo.create(email=email, createdby=email)
+
 @app.get("/")
 def index(request: Request):
     user = request.session.get('user')
@@ -138,7 +150,9 @@ async def auth(request: Request):
     
     user = token.get('userinfo')
     if user:
-        request.session['user'] = dict(user)
+        user = dict(user)
+        await get_or_create_user_info(user)
+        request.session['user'] = user
 
     return RedirectResponse(REACT_BASE_URL+"/")
 
@@ -201,13 +215,13 @@ async def delete_expensetype(expensetype_id: int, user: dict = Depends(get_curre
 @app.get('/dailyexpense')
 async def all_expenses(month: Optional[int] = None, year: Optional[int] = None, 
                        user: dict = Depends(get_current_user)):
-    user_email = user.get("email")
-    if not user_email:
-        raise HTTPException(status_code=401, detail="User authentication failed")
+    user_info = await get_or_create_user_info(user)
 
-    query = DailyExpense.filter(user_email=user_email).prefetch_related('expense_type')  
+    query = DailyExpense.filter(user_id=user_info.id).prefetch_related('expense_type')
     response = await DailyExpenseWithExpenseType.from_queryset(query)
     response_list = jsonable_encoder(response)
+    for expense in response_list:
+        expense["user_id"] = user_info.id
 
     if month and year:
         filtered_expenses = [
@@ -240,69 +254,71 @@ async def all_expenses(month: Optional[int] = None, year: Optional[int] = None,
 
 @app.get('/dailyexpense/{id}')
 async def specific_expense(id: int, user: dict = Depends(get_current_user)):
-    user_email = user.get("email")
-    if not user_email:
-        raise HTTPException(status_code=401, detail="User authentication failed")
+    user_info = await get_or_create_user_info(user)
 
-    expense = await DailyExpense.get_or_none(Q(id=id) & Q(user_email=user_email)).select_related('expense_type')
+    expense = await DailyExpense.get_or_none(Q(id=id) & Q(user_id=user_info.id)).select_related('expense_type')
     if not expense:
         raise HTTPException(status_code=404, detail="Expense not found")
 
     expense_data = await DailyExpenseWithExpenseType.from_tortoise_orm(expense)
+    expense_data = jsonable_encoder(expense_data)
+    expense_data["user_id"] = user_info.id
 
     # ✅ Convert Pydantic model to JSON-safe format
-    return JSONResponse(content={"status": "OK", "data": jsonable_encoder(expense_data)})
+    return JSONResponse(content={"status": "OK", "data": expense_data})
 
 @app.get("/search-expense/{name}")
 async def search_expense_by_product(name: str, user: dict = Depends(get_current_user)):
-    user_email = user.get("email")
-    if not user_email:
-        raise HTTPException(status_code=401, detail="User authentication failed")
+    user_info = await get_or_create_user_info(user)
 
     if len(name) < 3:
         raise HTTPException(status_code=400, detail="Product name must be at least 4 characters long")
 
-    expenses = await DailyExpense.filter(Q(name__icontains=name) & Q(user_email=user_email)).select_related("expense_type")
+    expenses = await DailyExpense.filter(Q(name__icontains=name) & Q(user_id=user_info.id)).select_related("expense_type")
 
     if not expenses:
         raise HTTPException(status_code=404, detail="No matching expenses found")
 
     expense_data = [await DailyExpenseWithExpenseType.from_tortoise_orm(expense) for expense in expenses]
+    expense_data = jsonable_encoder(expense_data)
+    for expense in expense_data:
+        expense["user_id"] = user_info.id
 
-    return JSONResponse(content={"status": "OK", "data": jsonable_encoder(expense_data)})
+    return JSONResponse(content={"status": "OK", "data": expense_data})
 
 @app.post('/dailyexpense/{expensetype_id}')
 async def add_expense(
     expensetype_id: int, 
-    expense_details: daily_expense_pydantic_in, 
+    expense_details: DailyExpenseCreate,
     user: dict = Depends(get_current_user)
 ):
-    user_email = user.get("email")
-    if not user_email:
-        raise HTTPException(status_code=401, detail="User authentication failed")
+    user_info = await get_or_create_user_info(user)
 
     expense_type = await ExpenseType.get(id=expensetype_id)
 
-    # ✅ Convert Pydantic model to dictionary and add user_email
     expense_data = expense_details.dict(exclude_unset=True)
-    expense_data["user_email"] = user_email  # ✅ Ensure user_email is set
+    expense_data.pop("expense_type_id", None)
 
     # ✅ Business logic for amount calculation
     if expense_data.get("unit_price", 0) > 0 and expense_data.get("amount", 0) == 0: 
         expense_data["amount"] = expense_data["quantity_purchased"] * expense_data["unit_price"]
 
-    # ✅ Create expense (Make sure user_email is NOT passed separately)
-    expense_obj = await DailyExpense.create(**expense_data, expense_type=expense_type)
+    expense_obj = await DailyExpense.create(
+        **expense_data,
+        expense_type=expense_type,
+        user=user_info,
+        createdby=user_info.email,
+    )
 
-    response = await daily_expense_pydantic.from_tortoise_orm(expense_obj)
-    return {"status": "OK", "data": response}
+    response = await DailyExpenseWithExpenseType.from_tortoise_orm(expense_obj)
+    response_data = jsonable_encoder(response)
+    response_data["user_id"] = user_info.id
+    return {"status": "OK", "data": response_data}
 
 @app.delete("/dailyexpense/{dailyexpense_id}")
 async def delete_expense(dailyexpense_id: int, user: dict = Depends(get_current_user)):
-    user_email = user.get("email")
-    if not user_email:
-        raise HTTPException(status_code=401, detail="User authentication failed")
-    expense = await DailyExpense.get_or_none(id=dailyexpense_id, user_email=user_email)
+    user_info = await get_or_create_user_info(user)
+    expense = await DailyExpense.get_or_none(id=dailyexpense_id, user_id=user_info.id)
     if not expense:
         raise HTTPException(status_code=403, detail="Unauthorized or Expense not found")
     await expense.delete()
@@ -314,11 +330,12 @@ async def update_daily_expense(
     expense: DailyExpenseUpdate, 
     user: dict = Depends(get_current_user)
 ):
-    user_email = user.get("email")
-    if not user_email:
-        raise HTTPException(status_code=401, detail="User authentication failed")
+    user_info = await get_or_create_user_info(user)
 
-    db_expense = await DailyExpense.get_or_none(id=expense_id, user_email=user_email)
+    db_expense = await DailyExpense.get_or_none(
+        id=expense_id,
+        user_id=user_info.id,
+    ).select_related("expense_type")
     if not db_expense:
         raise HTTPException(status_code=404, detail="Expense not found")
 
@@ -329,18 +346,20 @@ async def update_daily_expense(
     for key, value in update_data.items():
         setattr(db_expense, key, value)
 
+    db_expense.updatedon = datetime.utcnow()
+    db_expense.updatedby = user_info.email
     await db_expense.save()
-    updated_expense = await daily_expense_pydantic.from_tortoise_orm(db_expense)
+    updated_expense = await DailyExpenseWithExpenseType.from_tortoise_orm(db_expense)
+    updated_expense = jsonable_encoder(updated_expense)
+    updated_expense["user_id"] = user_info.id
 
-    return JSONResponse(content={"status": "OK", "data": jsonable_encoder(updated_expense)})
+    return JSONResponse(content={"status": "OK", "data": updated_expense})
 
 ## charts
 @app.get("/chart-data")
 async def get_chart_data(month: Optional[int] = None, year: Optional[int] = None, user: dict = Depends(get_current_user)):
-    user_email = user.get("email")
-    if not user_email:
-        raise HTTPException(status_code=401, detail="User authentication failed")
-    query = DailyExpense.filter(user_email=user_email).prefetch_related('expense_type')  
+    user_info = await get_or_create_user_info(user)
+    query = DailyExpense.filter(user_id=user_info.id).prefetch_related('expense_type')
     response = await DailyExpenseWithExpenseType.from_queryset(query)
     response_list = jsonable_encoder(response)
 
@@ -411,10 +430,8 @@ async def download_expense_report(
     """
 
     # Fetch all expenses
-    user_email = user.get("email")
-    if not user_email:
-        raise HTTPException(status_code=401, detail="User authentication failed")
-    query = DailyExpense.filter(user_email=user_email).prefetch_related("expense_type")
+    user_info = await get_or_create_user_info(user)
+    query = DailyExpense.filter(user_id=user_info.id).prefetch_related("expense_type")
     response = await DailyExpenseWithExpenseType.from_queryset(query)
     response_list = jsonable_encoder(response)
 
@@ -490,11 +507,9 @@ async def delete_expenses(
     
     if year is None:
         return JSONResponse(content={"status": "ERROR", "message": "Year is required"}, status_code=400)
-    user_email = user.get("email")
-    if not user_email:
-        raise HTTPException(status_code=401, detail="User authentication failed")
+    user_info = await get_or_create_user_info(user)
     # Create a filter condition for the year (and optionally for the month)
-    query_filter = Q(user_email=user_email) & Q(date__startswith=f"{year}")
+    query_filter = Q(user_id=user_info.id) & Q(date__startswith=f"{year}")
     if month:
         # ✅ Ensure proper formatting for month filtering (YYYY-MM)
         month_str = f"{year}-{str(month).zfill(2)}"

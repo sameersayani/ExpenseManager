@@ -15,7 +15,6 @@ const AddExpenseForm = () => {
     amount: 0,
     really_needed: false,
     expense_type: null,
-    user_email: ""
   });
 
   const [loading, setLoading] = useState(false);
