@@ -55,26 +55,22 @@ const AddExpenseForm = () => {
 
   const validateForm = () => {
     const newErrors = {};
-    const unitPrice = String(formData.unit_price).trim() === "" ? 0 : parseFloat(formData.unit_price);
-    const amount = String(formData.amount).trim() === "" ? 0 : parseFloat(formData.amount);
+    const unitPrice = Number(formData.unit_price || 0);
+    const amount = Number(formData.amount || 0);
+    const hasUnitPrice = Number.isFinite(unitPrice) && unitPrice > 0;
+    const hasAmount = Number.isFinite(amount) && amount > 0;
 
     if (!formData.expense_type) newErrors.expense_type = "Select an expense category";
     if (!formData.date) newErrors.date = "Date is required";
     if (!formData.name) newErrors.name = "Product/service name is required";
-    if (unitPrice > 0 && amount > 0) {
-      newErrors.unit_price = "Please either enter unit price or amount. If you enter unit price, amount will auto-calculate";
+    if (hasUnitPrice && hasAmount) {
+      newErrors.unit_price = "Enter either unit price or amount, not both.";
     }
-    if (unitPrice <= 0 && amount <= 0) {
-      newErrors.amount = "Either unit price or amount must be greater than 0";
+    if (!hasUnitPrice && !hasAmount) {
+      newErrors.amount = "Enter either unit price or amount.";
     }
     if (formData.quantity_purchased <= 0) {
       newErrors.quantity_purchased = "Quantity must be greater than 0";
-    }
-    if(formData.unit_price === ""){
-      formData.unit_price = 0;
-    }
-    if(formData.amount === ""){
-      formData.amount = 0;
     }
     return newErrors;
   };
@@ -97,6 +93,8 @@ const AddExpenseForm = () => {
     setSuccessMessage("");
 
     const { expense_type, ...payload } = formData;
+    payload.unit_price = payload.unit_price === "" || payload.unit_price == null ? 0 : payload.unit_price;
+    payload.amount = payload.amount === "" || payload.amount == null ? 0 : payload.amount;
     try {
       const response = await fetch(`${API_BASE_URL}/dailyexpense/${formData.expense_type}`, {
         method: "POST",

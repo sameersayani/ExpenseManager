@@ -1,5 +1,5 @@
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from tortoise.models import Model
 from tortoise import fields
 from tortoise.contrib.pydantic import pydantic_model_creator
@@ -17,6 +17,13 @@ class DailyExpenseCreate(BaseModel):
     amount: float = 0.00
     really_needed: bool = False
 
+    @field_validator("unit_price", "amount", mode="before")
+    @classmethod
+    def empty_money_is_zero(cls, value):
+        if value is None or (isinstance(value, str) and not value.strip()):
+            return 0
+        return value
+
 class DailyExpenseUpdate(BaseModel):
     date: datetime  
     name: str
@@ -25,6 +32,13 @@ class DailyExpenseUpdate(BaseModel):
     amount: float = 0.00
     really_needed: bool = False
     expense_type_id: int  # Expecting this in the payload
+
+    @field_validator("unit_price", "amount", mode="before")
+    @classmethod
+    def empty_money_is_zero(cls, value):
+        if value is None or (isinstance(value, str) and not value.strip()):
+            return 0
+        return value
 
 class DailyExpense(Model):
     id = fields.IntField(pk=True)
