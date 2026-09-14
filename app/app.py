@@ -61,12 +61,15 @@ app.mount("/static", StaticFiles(directory=static_dir), name="static")
 # Middleware for sessions
 ##app.add_middleware(SessionMiddleware, secret_key=os.getenv("SECRET_KEY", "default_secret_key"), same_site="lax")
 # ✅ Add SessionMiddleware FIRST
+
+IS_PRODUCTION = os.getenv("ENVIRONMENT", "development") == "production"
+
 app.add_middleware(
     SessionMiddleware,
     secret_key=os.getenv("SECRET_KEY", GOOGLE_CLIENT_SECRET),
-    session_cookie="session_id",  # ✅ Add a session cookie name
-    same_site="lax",
-    https_only=False  # Set to True in production
+    session_cookie="session_id",
+    same_site="none" if IS_PRODUCTION else "lax",
+    https_only=IS_PRODUCTION,  # SameSite=None requires Secure (HTTPS)
 )
 
 # # CORS setup
