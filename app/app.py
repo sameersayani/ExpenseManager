@@ -46,9 +46,12 @@ static_dir = os.path.join(os.path.dirname(__file__), "static")
 app = FastAPI()
 
 db_url = os.getenv("DATABASE_URL")
+if db_url and db_url.startswith("postgresql://"):
+    db_url = db_url.replace("postgresql://", "postgres://", 1)
+
 register_tortoise(
     app,
-    db_url=os.getenv("DATABASE_URL"),  # Update with your DB credentials
+    db_url=db_url,  # normalized for Tortoise's URL parser
     modules={"models": ["app.models"]},  # Replace "models" with your actual model module
     generate_schemas=True,  # Automatically generate tables
     add_exception_handlers=True,
