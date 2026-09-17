@@ -40,6 +40,7 @@ import openpyxl
 from tortoise.expressions import Q
 from fastapi.openapi.docs import get_swagger_ui_html
 from pathlib import Path
+from app.auth_mobile import router as mobile_auth_router
 
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 # Initialize FastAPI app
@@ -58,6 +59,7 @@ register_tortoise(
 )
 
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
+app.include_router(mobile_auth_router)
 # Middleware for sessions
 ##app.add_middleware(SessionMiddleware, secret_key=os.getenv("SECRET_KEY", "default_secret_key"), same_site="lax")
 # ✅ Add SessionMiddleware FIRST
