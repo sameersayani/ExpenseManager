@@ -41,6 +41,7 @@ from tortoise.expressions import Q
 from fastapi.openapi.docs import get_swagger_ui_html
 from pathlib import Path
 from app.auth_mobile import router as mobile_auth_router
+import jwt
 
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 # Initialize FastAPI app
@@ -112,10 +113,36 @@ templates = templates = Jinja2Templates(directory=Path(__file__).parent / "templ
 #     return user
 
 async def get_current_user(request: Request):
-    user = request.session.get("user")
-    if not user:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    return user
+    # 1. Web flow (unchanged) — session cookie set by /auth after Google login
+    session_user = request.session.get("user")
+    if session_user:
+        return session_user
+
+    # token = "Test Token"  # Placeholder for testing
+    # print(jwt.get_unverified_header(token))
+    # 2. Mobile / Postman / Swagger flow — JWT from /api/mobile/auth/google
+    auth_header = request.headers.get("authorization")
+    if auth_header and auth_header.lower().startswith("bearer "):
+        token = auth_header.split(" ", 1)[1]
+        try:
+            payload = jwt.decode(token, os.getenv("SECRET_KEY"), algorithms=["HS256"])
+            print("DEBUG payload:", payload)
+        except jwt.ExpiredSignatureError:
+            print("ExpiredSignatureError")
+            raise HTTPException(status_code=401, detail="Token has expired")
+        except jwt.PyJWTError as e:
+            print("PyJWTError:", str(e))   # <-- this line, print the actual message
+            raise HTTPException(status_code=401, detail="Could not validate credentials")
+
+        email = payload.get("sub")
+        if not email:
+            raise HTTPException(status_code=401, detail="Invalid token payload")
+
+        # Shaped to match the session user dict so get_or_create_user_info()
+        # and everything downstream keeps working without changes.
+        return {"email": email, "name": payload.get("name"), "picture": payload.get("picture")}
+
+    raise HTTPException(status_code=401, detail="Not authenticated")
 
 async def get_or_create_user_info(user: dict) -> UserInfo:
     email = user.get("email")
@@ -177,9 +204,6 @@ async def auth(request: Request):
 
 @app.get("/user")
 def get_user(request: Request, user: dict = Depends(get_current_user)):
-    user = request.session.get("user")
-    if not user:
-        raise HTTPException(status_code=401, detail="Not authenticated")
     return JSONResponse(content={"user": user})
 
 @app.get('/logout')
