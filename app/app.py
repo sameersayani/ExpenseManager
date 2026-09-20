@@ -208,7 +208,16 @@ def get_user(request: Request, user: dict = Depends(get_current_user)):
 
 @app.get('/logout')
 def logout(request: Request, user: dict = Depends(get_current_user)):
-    request.session.pop('user')
+    auth_header = request.headers.get("authorization")
+
+    if auth_header and auth_header.lower().startswith("bearer "):
+        # Mobile / JWT flow: JWTs are stateless — there's no server-side
+        # session to clear. "Logout" here just means the client discards
+        # the token; nothing left for the backend to do but acknowledge it.
+        return JSONResponse(content={"status": "OK", "message": "Logged out"})
+
+    # Web flow — unchanged, just made pop() safe if the key is already gone
+    request.session.pop('user', None)
     request.session.clear()
     return RedirectResponse('/')
 
