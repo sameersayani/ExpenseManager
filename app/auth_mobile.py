@@ -69,18 +69,16 @@ def create_access_token(data: dict) -> str:
 
 def verify_google_token(token: str) -> dict:
     try:
+        # The library inherently validates the issuer structure internally
         idinfo = id_token.verify_oauth2_token(
             token,
             google_requests.Request(),
             audience=allowed_audiences,
         )
         
-        # Clean protocol markers off the issuer for robust string matching
-        issuer = idinfo.get("iss", "")
-        clean_issuer = issuer.replace("https://", "").replace("http://", "")
-        
-        if clean_issuer != "://google.com":
-            raise ValueError(f"Invalid issuer: {issuer}")
+        # Match both standard Google token issuer variations securely
+        if idinfo.get("iss") not in ["accounts.google.com", "https://accounts.google.com"]:
+            raise ValueError(f"Invalid issuer string encountered: {idinfo.get('iss')}")
             
         return idinfo
     except Exception as e:
