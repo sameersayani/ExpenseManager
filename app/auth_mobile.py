@@ -25,11 +25,21 @@ if not GOOGLE_CLIENT_ID or not JWT_SECRET:
 
 security = HTTPBearer(auto_error=True)
 
+# 1. Start with a list containing your primary client ID
+allowed_audiences = [GOOGLE_CLIENT_ID]
+
+# 2. Extract extra client IDs if they exist in the env
+extra_audiences = os.getenv("ALLOWED_GOOGLE_CLIENT_IDS", "").split(",")
+
+# 3. Filter out any empty strings and merge them into the allowed list
+for aud in extra_audiences:
+    clean_aud = aud.strip()
+    if clean_aud and clean_aud not in allowed_audiences:
+        allowed_audiences.append(clean_aud)
 
 # ====================== SCHEMAS ======================
 class GoogleLoginRequest(BaseModel):
     id_token: str = Field(..., description="Google ID Token received from mobile Google Sign-In SDK")
-
 
 class UserResponse(BaseModel):
     id: int
@@ -58,7 +68,7 @@ def verify_google_token(token: str) -> dict:
         idinfo = id_token.verify_oauth2_token(
             token,
             google_requests.Request(),
-            GOOGLE_CLIENT_ID,
+            audience=allowed_audiences, # This is now safely guaranteed to be a list
         )
         if idinfo.get("iss") not in ["accounts.google.com", "https://accounts.google.com"]:
             raise ValueError("Invalid issuer")
@@ -68,7 +78,6 @@ def verify_google_token(token: str) -> dict:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Invalid Google ID token: {str(e)}",
         )
-
 
 async def get_or_create_user(email: str, name: str = None, picture: str = None) -> UserInfo:
     user = await UserInfo.get_or_none(email=email)
