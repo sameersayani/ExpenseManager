@@ -1,6 +1,6 @@
 # app/auth_mobile.py
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import jwt
@@ -25,21 +25,24 @@ if not GOOGLE_CLIENT_ID or not JWT_SECRET:
 
 security = HTTPBearer(auto_error=True)
 
-# 1. Start with a list containing your primary client ID
-allowed_audiences = [GOOGLE_CLIENT_ID]
+# 1. Start with a list containing your cleaned primary client ID
+allowed_audiences = [GOOGLE_CLIENT_ID.strip()]
 
 # 2. Extract extra client IDs if they exist in the env
-extra_audiences = os.getenv("ALLOWED_GOOGLE_CLIENT_IDS", "").split(",")
+raw_extra_audiences = os.getenv("ALLOWED_GOOGLE_CLIENT_IDS", "")
+if raw_extra_audiences:
+    extra_audiences = raw_extra_audiences.split(",")
+    # 3. Filter out empty strings, hidden quotes, and merge into allowed list
+    for aud in extra_audiences:
+        clean_aud = aud.replace('"', '').replace("'", "").strip()
+        if clean_aud and clean_aud not in allowed_audiences:
+            allowed_audiences.append(clean_aud)
 
-# 3. Filter out any empty strings and merge them into the allowed list
-for aud in extra_audiences:
-    clean_aud = aud.strip()
-    if clean_aud and clean_aud not in allowed_audiences:
-        allowed_audiences.append(clean_aud)
 
 # ====================== SCHEMAS ======================
 class GoogleLoginRequest(BaseModel):
     id_token: str = Field(..., description="Google ID Token received from mobile Google Sign-In SDK")
+
 
 class UserResponse(BaseModel):
     id: int
@@ -58,7 +61,8 @@ class TokenResponse(BaseModel):
 # ====================== HELPERS ======================
 def create_access_token(data: dict) -> str:
     payload = data.copy()
-    expire = datetime.utcnow() + timedelta(days=JWT_EXPIRE_DAYS)
+    # Fixed deprecated utcnow to timezone-aware utc datetime
+    expire = datetime.now(timezone.utc) + timedelta(days=JWT_EXPIRE_DAYS)
     payload.update({"exp": expire})
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
@@ -68,16 +72,23 @@ def verify_google_token(token: str) -> dict:
         idinfo = id_token.verify_oauth2_token(
             token,
             google_requests.Request(),
-            audience=allowed_audiences, # This is now safely guaranteed to be a list
+            audience=allowed_audiences,
         )
-        if idinfo.get("iss") not in ["accounts.google.com", "https://accounts.google.com"]:
-            raise ValueError("Invalid issuer")
+        
+        # Clean protocol markers off the issuer for robust string matching
+        issuer = idinfo.get("iss", "")
+        clean_issuer = issuer.replace("https://", "").replace("http://", "")
+        
+        if clean_issuer != "://google.com":
+            raise ValueError(f"Invalid issuer: {issuer}")
+            
         return idinfo
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Invalid Google ID token: {str(e)}",
         )
+
 
 async def get_or_create_user(email: str, name: str = None, picture: str = None) -> UserInfo:
     user = await UserInfo.get_or_none(email=email)
