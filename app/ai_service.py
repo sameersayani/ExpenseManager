@@ -133,7 +133,7 @@ TOOL_SCHEMAS = [
 
 
 def _chat_completions_url() -> str:
-    base_url = os.getenv("AI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
+    base_url = os.getenv("AI_BASE_URL", "https://openai.com").rstrip("/")
     return base_url if base_url.endswith("/chat/completions") else f"{base_url}/chat/completions"
 
 
@@ -185,33 +185,57 @@ async def run_chat(messages: list[dict[str, str]], user: UserInfo) -> dict[str, 
                 name = call["function"]["name"]
                 arguments = json.loads(call["function"].get("arguments") or "{}")
                 
-                # Check validation for expense creation/updates
+                # --- ENFORCED PARAMETER VALIDATION INTERCEPT STAGE ---
                 if name in {"create_user_expense", "update_user_expense"}:
                     currency = arguments.get("currency")
                     expense_type_id = arguments.get("expense_type_id")
+                    item_name = arguments.get("name", "").lower()
+
+                    # Fetch valid system expense types dynamically from database
+                    type_result = await dispatch_tool("list_expense_types", {}, user)
+                    available_types = type_result.get("data", [])
+                    valid_type_ids = {t["id"] for t in available_types}
                     
-                    # Intercept if currency or expense_type_id is not properly specified
-                    if name == "create_user_expense" and (not currency or not expense_type_id):
-                        # Fetch the actual system expense types to display
-                        type_result = await dispatch_tool("list_expense_types", {}, user)
-                        available_types = type_result.get("data", [])
-                        types_list_str = ", ".join([f"{t['name']} (ID: {t['id']})" for t in available_types])
-                        supported_currencies = ["INR", "USD", "EUR", "GBP", "AED"]
+                    # Clean text-only comma-separated category string (No IDs shown to user)
+                    types_list_str = ", ".join([t['name'] for t in available_types])
+                    supported_currencies = ["INR", "USD", "EUR", "GBP", "AED"]
+
+                    # AUTOMATED IDENTIFICATION WITH FALLBACK GATE:
+                    if not expense_type_id or expense_type_id not in valid_type_ids:
+                        auto_matched_id = None
+                        for t in available_types:
+                            cat_name = t["name"].lower()
+                            # Match keywords or common associations
+                            if cat_name in item_name or item_name in cat_name or ("shoe" in item_name and ("cloth" in cat_name or "apparel" in cat_name or "personal" in cat_name)):
+                                auto_matched_id = t["id"]
+                                break
                         
+                        # Fallback to category ID 22 (Other/Miscellaneous) if no match is found
+                        if not auto_matched_id:
+                            auto_matched_id = 22
+
+                        arguments["expense_type_id"] = auto_matched_id
+                        expense_type_id = auto_matched_id
+
+                    # Re-verify parameters after running auto-match optimization
+                    is_missing_type = not expense_type_id or (expense_type_id not in valid_type_ids)
+                    is_missing_curr = not currency or (currency.upper() not in supported_currencies)
+
+                    if name == "create_user_expense" and (is_missing_type or is_missing_curr):
                         missing_elements = []
-                        if not expense_type_id:
+                        if is_missing_type:
                             missing_elements.append(
-                                f"a valid expense type. Available categories are: [{types_list_str}]"
+                                f"a valid expense category (e.g., {types_list_str})"
                             )
-                        if not currency:
+                        if is_missing_curr:
                             missing_elements.append(
-                                f"a valid currency. Supported currencies are: {', '.join(supported_currencies)}"
+                                f"a supported currency code from: {', '.join(supported_currencies)}"
                             )
-                            
+                        
                         return {
-                            "message": f"To add this expense, please specify: {' AND '.join(missing_elements)}.",
+                            "message": f"To add this expense correctly, please specify: {' AND '.join(missing_elements)}.",
                             "tool_calls": tool_activity
-                        }
+                        } 
 
                 if name == "delete_user_expense":
                     expense_id = int(arguments["expense_id"])
@@ -220,6 +244,7 @@ async def run_chat(messages: list[dict[str, str]], user: UserInfo) -> dict[str, 
                         "tool_calls": tool_activity,
                         "pending_delete": {"expense_id": expense_id},
                     }
+                    
                 if name in {"create_user_expense", "update_user_expense"}:
                     classification_name = arguments.get("name", "")
                     classification = classify_expense(classification_name)
@@ -240,6 +265,8 @@ async def run_chat(messages: list[dict[str, str]], user: UserInfo) -> dict[str, 
                             "reason": reason,
                         },
                     }
+                
+                # Execute the tool if all validation stages pass successfully
                 result = await dispatch_tool(name, arguments, user)
                 tool_activity.append({"name": name, "result": result})
                 model_messages.append({"role": "tool", "tool_call_id": call["id"], "content": json.dumps(result)})

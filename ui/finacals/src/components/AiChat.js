@@ -4,7 +4,7 @@ import "./AiChat.css";
 
 const initialMessage = {
   role: "assistant",
-  content: "Ask me about your expenses, summaries, searches, or CRUD actions.",
+  content: "Hi, Ask me about your expenses you want to add, update or delete, summaries, searches actions. Provide me proper item name, expense type currency and amount. For example: Today bought a new pair of shows worth Rs. 2500",
 };
 
 const reportDownloadUrl = (report) => {
