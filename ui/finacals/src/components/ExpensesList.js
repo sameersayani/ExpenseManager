@@ -9,13 +9,19 @@ import ConfirmDeleteModal from "./ConfirmDeleteModal";
 import DownloadReportModal from "./DownloadReportModal";
 import "./css/ExpenseList.css";
 import {API_BASE_URL} from "../config";
+import { formatAmount } from "../utils/formatAmount"; // Import the formatAmount function
+import { useCurrency } from "../hooks/useCurrency";
 
 const ExpensesList = () => {
   const [expenseType, setExpenseType] = useContext(ExpenseTypeContext);
   const [expenseToDelete, setExpenseToDelete] = useState(null);
   const { loadExpense } = useUpdateExpenseContext(); // Use loadExpense from the context
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedCurrency, setSelectedCurrency] = useCurrency();
   
+  // State to manage showing/hiding totals (hidden by default)
+  const [showTotals, setShowTotals] = useState(false);
+
   // Initialize current month and year
   const currentDate = new Date();
   const currentMonth = currentDate.getMonth() + 1; // Months are 0-indexed
@@ -65,11 +71,7 @@ const ExpensesList = () => {
         data: [...result.data] || [],
       });
 
-      setTotals({
-        actual_total_expenditure: Number(result.actual_total_expenditure?.replace(/,/g, "")) || 0,
-        non_essential_expenditure: Number(result.non_essential_expenditure?.replace(/,/g, "")) || 0,
-        essential_expenditure: Number(result.essential_expenditure?.replace(/,/g, "")) || 0,
-      });
+      setTotals(result.totals_by_currency || {});
       setSearchError("")
       setNavbarSearch("")
     } catch (error) {
@@ -112,8 +114,6 @@ const ExpensesList = () => {
   };
 
   const handleUpdate = (id) => {
-    //console.log("Updating expense with ID:", id);
-    // Load the selected expense data by ID
     loadExpense(id); // Use loadExpense to populate the context with the data
     navigate(`/updateexpense/${id}`); // Navigate to the Update Expense page
   };
@@ -136,6 +136,7 @@ const ExpensesList = () => {
           non_essential_expenditure: result.non_essential_expenditure || 0,
           essential_expenditure: result.essential_expenditure || 0,
         });
+      setTotals(result.totals_by_currency || {});
         setRefreshTrigger((prev) => prev + 1);
       })
       .catch((error) => console.error("Error fetching expenses:", error));
@@ -252,11 +253,12 @@ const ExpensesList = () => {
               <ExpenseRow
                 key={expense.id}
                 id={expense.id}
-                date={expense.date.split("T")[0]}
+                date={expense.date ? expense.date.split("T")[0] : ""}
                 name={expense.name}
                 quantity_purchased={expense.quantity_purchased}
                 unit_price={expense.unit_price}
                 amount={expense.amount}
+                currency={expense.currency}
                 really_needed={expense.really_needed ? "yes" : "no"}
                 handleDelete={handleDelete}
                 handleUpdate={handleUpdate}
@@ -271,25 +273,80 @@ const ExpensesList = () => {
             </tr>
           )}
         </tbody>
+        
         {expense?.data?.length > 0 ? (
-        <tfoot>
-          <tr>
-            <td colSpan={3}></td>
-            <td>Actual Total </td>
-            <td colSpan={1}><strong>₹ {actualTotalExpenditure}</strong></td>
-          </tr>
-          <tr>
-            <td colSpan={3}></td>
-            <td style={{ color: "#FF0000" }} title="Overspend Amount is calculated based on your selection for Really Needed field as no">Overspend </td>
-            <td style={{ color: "#FF0000" }} title="Overspend Amount is calculated based on your selection for Really Needed field as no"><strong>₹ {nonEssentialExpenditure}</strong></td>
-          </tr>
-          <tr>
-            <td colSpan={3}></td>
-            <td style={{ color: "#0000FF" }}>Desired Total </td>
-            <td style={{ color: "#0000FF" }}><strong>₹ {essentialExpenditure}</strong></td>
-          </tr>
-        </tfoot>
-        ) : (<tfoot></tfoot>)}
+          <tfoot>
+            {/* Accordion Toggle Row */}
+            <tr 
+              onClick={() => setShowTotals(!showTotals)} 
+              style={{ cursor: "pointer", backgroundColor: "#f8f9fa" }}
+            >
+              <td colSpan={7} className="text-center py-2">
+                <span style={{ color: "#007bff", fontWeight: "600", userSelect: "none" }}>
+                  {showTotals ? "Hide Totals ▲" : "Show Totals ▼"}
+                </span>
+              </td>
+            </tr>
+
+            {/* Conditionally reveal rows based on state */}
+            {showTotals && (
+              Object.keys(totals || {}).length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="text-center text-muted">
+                    No totals available
+                  </td>
+                </tr>
+              ) : (
+                Object.entries(totals).map(([currency, values]) => (
+                  <React.Fragment key={currency}>
+                    {/* Actual Total */}
+                    <tr>
+                      <td colSpan={3}></td>
+                      <td>
+                        <strong>Actual Total ({currency})</strong>
+                      </td>
+                      <td>
+                        <strong>{formatAmount(values.actual, currency)}</strong>
+                      </td>
+                      <td colSpan={2}></td>
+                    </tr>
+
+                    {/* Overspend */}
+                    <tr>
+                      <td colSpan={3}></td>
+                      <td style={{ color: "#FF0000" }}>
+                        <strong>Overspend ({currency})</strong>
+                      </td>
+                      <td style={{ color: "#FF0000" }}>
+                        <strong>{formatAmount(values.non_essential, currency)}</strong>
+                      </td>
+                      <td colSpan={2}></td>
+                    </tr>
+
+                    {/* Desired Total */}
+                    <tr>
+                      <td colSpan={3}></td>
+                      <td style={{ color: "#0000FF" }}>
+                        <strong>Desired Total ({currency})</strong>
+                      </td>
+                      <td style={{ color: "#0000FF" }}>
+                        <strong>{formatAmount(values.essential, currency)}</strong>
+                      </td>
+                      <td colSpan={2}></td>
+                    </tr>
+
+                    {/* Spacer row between currencies */}
+                    <tr>
+                      <td colSpan={7} style={{ height: "8px", border: "none" }}></td>
+                    </tr>
+                  </React.Fragment>
+                ))
+              )
+            )}
+          </tfoot>
+        ) : (
+          <tfoot></tfoot>
+        )}
       </Table>
     </div>
 

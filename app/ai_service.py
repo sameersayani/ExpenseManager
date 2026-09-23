@@ -12,6 +12,7 @@ SYSTEM_PROMPT = """You are the ExpenseManager assistant.
 You may manage only the authenticated user's daily expenses through the available tools.
 Never ask for or invent user IDs, expense type IDs, emails, audit fields, or database details.
 When the user gives an expense type name, call list_expense_types and select the matching ID. Ask the user only if there is no clear match.
+When creating or updating an expense, always include a currency. Supported currencies are INR, USD, EUR, GBP, AED. If the user does not specify a currency, ask them to choose one. Do not invent a currency.
 Essential guardrails are enforced by the application. Treat entertainment, games, leisure, luxury, vacations, and hobbies as not really needed by default. Treat housing, utilities, food, medicine, medical tests, education, and transport as really needed. When uncertain, default to not really needed.
 For money fields, exactly one of unit_price or amount must be positive.
 Deletion and AI essential/non-essential classifications always require explicit confirmation from the user; do not claim a mutation happened when a confirmation is pending.
@@ -68,47 +69,57 @@ TOOL_SCHEMAS = [
         },
     },
     {
-        "type": "function",
-        "function": {
-            "name": "create_user_expense",
-            "description": "Create an expense. Exactly one positive value must be supplied for unit_price or amount.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "date": {"type": "string", "description": "ISO date or datetime"},
-                    "name": {"type": "string"},
-                    "expense_type_id": {"type": "integer"},
-                    "quantity_purchased": {"type": "integer"},
-                    "unit_price": {"type": "number"},
-                    "amount": {"type": "number"},
-                    "really_needed": {"type": "boolean"},
-                    "classification_reason": {"type": "string"},
+    "type": "function",
+    "function": {
+        "name": "create_user_expense",
+        "description": "Create an expense. Exactly one positive value must be supplied for unit_price or amount. Currency is required.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "date": {"type": "string", "description": "ISO date or datetime"},
+                "name": {"type": "string"},
+                "expense_type_id": {"type": "integer"},
+                "quantity_purchased": {"type": "integer"},
+                "unit_price": {"type": "number"},
+                "amount": {"type": "number"},
+                "currency": {
+                    "type": "string",
+                    "enum": ["INR", "USD", "EUR", "GBP", "AED"],
+                    "description": "Currency code for this expense"
                 },
-                "required": ["date", "name", "expense_type_id"],
+                "really_needed": {"type": "boolean"},
+                "classification_reason": {"type": "string"},
+            },
+            "required": ["date", "name", "expense_type_id", "currency"],
             },
         },
     },
-    {
-        "type": "function",
-        "function": {
-            "name": "update_user_expense",
-            "description": "Update an expense belonging to the authenticated user.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "expense_id": {"type": "integer"},
-                    "date": {"type": "string"},
-                    "name": {"type": "string"},
-                    "expense_type_id": {"type": "integer"},
-                    "quantity_purchased": {"type": "integer"},
-                    "unit_price": {"type": "number"},
-                    "amount": {"type": "number"},
-                    "really_needed": {"type": "boolean"},
-                    "classification_reason": {"type": "string"},
-                },
-                "required": ["expense_id"],
+   {
+    "type": "function",
+    "function": {
+        "name": "update_user_expense",
+        "description": "Update an expense belonging to the authenticated user.",
+        "parameters": {
+        "type": "object",
+        "properties": {
+            "expense_id": {"type": "integer"},
+            "date": {"type": "string"},
+            "name": {"type": "string"},
+            "expense_type_id": {"type": "integer"},
+            "quantity_purchased": {"type": "integer"},
+            "unit_price": {"type": "number"},
+            "amount": {"type": "number"},
+            "currency": {
+            "type": "string",
+            "enum": ["INR", "USD", "EUR", "GBP", "AED"],
+            "description": "Currency code for this expense"
             },
-        },
+            "really_needed": {"type": "boolean"},
+            "classification_reason": {"type": "string"}
+            },
+            "required": ["expense_id"]
+            }
+        }
     },
     {
         "type": "function",
@@ -173,6 +184,35 @@ async def run_chat(messages: list[dict[str, str]], user: UserInfo) -> dict[str, 
             for call in calls:
                 name = call["function"]["name"]
                 arguments = json.loads(call["function"].get("arguments") or "{}")
+                
+                # Check validation for expense creation/updates
+                if name in {"create_user_expense", "update_user_expense"}:
+                    currency = arguments.get("currency")
+                    expense_type_id = arguments.get("expense_type_id")
+                    
+                    # Intercept if currency or expense_type_id is not properly specified
+                    if name == "create_user_expense" and (not currency or not expense_type_id):
+                        # Fetch the actual system expense types to display
+                        type_result = await dispatch_tool("list_expense_types", {}, user)
+                        available_types = type_result.get("data", [])
+                        types_list_str = ", ".join([f"{t['name']} (ID: {t['id']})" for t in available_types])
+                        supported_currencies = ["INR", "USD", "EUR", "GBP", "AED"]
+                        
+                        missing_elements = []
+                        if not expense_type_id:
+                            missing_elements.append(
+                                f"a valid expense type. Available categories are: [{types_list_str}]"
+                            )
+                        if not currency:
+                            missing_elements.append(
+                                f"a valid currency. Supported currencies are: {', '.join(supported_currencies)}"
+                            )
+                            
+                        return {
+                            "message": f"To add this expense, please specify: {' AND '.join(missing_elements)}.",
+                            "tool_calls": tool_activity
+                        }
+
                 if name == "delete_user_expense":
                     expense_id = int(arguments["expense_id"])
                     return {

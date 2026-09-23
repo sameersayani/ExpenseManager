@@ -3,10 +3,13 @@ import { useUpdateExpenseContext } from "../UpdateExpenseContext";
 import ExpenseTypeist from "./ExpenseType";
 import DatePicker from "./DatePicker";
 import { useNavigate } from "react-router-dom";
+import CurrencySelect  from "./CurrencySelect";
+import { useCurrency } from "../hooks/useCurrency";
 
 const UpdateExpenseForm = ({ id, onCancel }) => {
   const navigate = useNavigate();
   const [showModal, setShowModal] = useState(false);
+  const [selectedCurrency] = useCurrency();
   const { expenseData, loadExpense, updateExpense } = useUpdateExpenseContext();
   const [formData, setFormData] = useState({
     date: "",
@@ -16,6 +19,7 @@ const UpdateExpenseForm = ({ id, onCancel }) => {
     amount: "",
     really_needed: false,
     expense_type: null,
+    currency: selectedCurrency || "",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -30,7 +34,7 @@ const UpdateExpenseForm = ({ id, onCancel }) => {
 
   useEffect(() => {
     if (expenseData && expenseData.data) {
-      const { date, name, quantity_purchased, unit_price, amount, really_needed, expense_type } = expenseData.data;
+      const { date, name, quantity_purchased, unit_price, amount, really_needed, expense_type, currency } = expenseData.data;
       setFormData({
         date: date ? date.split("T")[0] : "",
         name: name || "",
@@ -39,6 +43,7 @@ const UpdateExpenseForm = ({ id, onCancel }) => {
         amount: amount !== null ? amount : "",
         really_needed: really_needed || false,
         expense_type: expense_type.id || null,
+        currency: currency
       });
     }
   }, [expenseData]);
@@ -89,6 +94,9 @@ const UpdateExpenseForm = ({ id, onCancel }) => {
     if (formData.quantity_purchased <= 0) {
       newErrors.quantity_purchased = "Quantity must be greater than 0";
     }
+    if (!formData.currency) {
+       newErrors.currency = "Please select a currency";
+    }
     return newErrors;
   };
 
@@ -117,6 +125,7 @@ const UpdateExpenseForm = ({ id, onCancel }) => {
         amount: formData.amount === "" || formData.amount == null ? 0 : formData.amount,
         really_needed: formData.really_needed,
         expense_type_id: formData.expense_type,
+        currency: formData.currency
       };
       await updateExpense(expenseData.data?.id, updatedData);
       setSuccessMessage("Expense updated successfully!");
@@ -151,6 +160,15 @@ const UpdateExpenseForm = ({ id, onCancel }) => {
         <input type="number" name="quantity_purchased" placeholder="Quantity" value={formData.quantity_purchased} onChange={handleInputChange} className="w-full p-3 border rounded-md" />
         <input type="number" name="unit_price" placeholder="Unit Price" value={formData.unit_price} onChange={handleInputChange} className="w-full p-3 border rounded-md" />
         <input type="number" name="amount" placeholder="Amount" value={formData.amount} onChange={handleInputChange} className="w-full p-3 border rounded-md" />
+        {/* Currency */}
+                <CurrencySelect
+          value={formData.currency}
+          onChange={(code) => {
+            setFormData((prev) => ({ ...prev, currency: code }));
+            setErrors((prev) => ({ ...prev, currency: "" }));
+          }}
+          error={errors.currency}
+        />
         <label className="text-sm font-medium text-gray-700">Do you really need this?</label>
         <label className="flex items-center space-x-2">
           <input

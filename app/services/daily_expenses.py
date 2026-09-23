@@ -99,6 +99,7 @@ async def create_expense(user: UserInfo, data: DailyExpenseCreate, expense_type_
         unit_price=unit_price,
         amount=amount,
         really_needed=data.really_needed,
+        currency=data.currency,
         expense_type=expense_type,
         user=user,
         createdby=user.email,
@@ -127,7 +128,7 @@ async def update_expense(user: UserInfo, expense_id: int, data: dict[str, Any]) 
         if not expense_type:
             raise HTTPException(status_code=404, detail="Expense type not found")
         expense.expense_type = expense_type
-    for key in ("date", "name", "quantity_purchased", "unit_price", "amount", "really_needed"):
+    for key in ("date", "name", "quantity_purchased", "unit_price", "amount", "really_needed", "currency"):
         if key in data:
             setattr(expense, key, data[key])
     expense.updatedon = datetime.utcnow()

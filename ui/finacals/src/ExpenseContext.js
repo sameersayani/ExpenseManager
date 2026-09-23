@@ -4,11 +4,12 @@ export const ExpenseContext = createContext();
 
 export const ExpenseProvider = (props) => {
   const [expense, setExpense] = useState({ data: [] });
-  const [totals, setTotals] = useState({  
-    actual_total_expenditure: 0,
-    non_essential_expenditure: 0,
-    essential_expenditure: 0
-  });
+  // const [totals, setTotals] = useState({  
+  //   actual_total_expenditure: 0,
+  //   non_essential_expenditure: 0,
+  //   essential_expenditure: 0
+  // });
+  const [totals, setTotals] = useState({});
   const [searchError, setSearchError] = useState("");
   const [navbarSearch, setNavbarSearch] = useState("");
 
@@ -30,11 +31,12 @@ export const ExpenseProvider = (props) => {
       .then((data) => {
         setExpense({ data: data.data || [] });
 
-        setTotals({ 
-          actual_total_expenditure: Number(data.actual_total_expenditure?.replace(/,/g, "")) || 0,
-          non_essential_expenditure: Number(data.non_essential_expenditure?.replace(/,/g, "")) || 0,
-          essential_expenditure: Number(data.essential_expenditure?.replace(/,/g, "")) || 0
-        });
+        // setTotals({ 
+        //   actual_total_expenditure: Number(data.actual_total_expenditure?.replace(/,/g, "")) || 0,
+        //   non_essential_expenditure: Number(data.non_essential_expenditure?.replace(/,/g, "")) || 0,
+        //   essential_expenditure: Number(data.essential_expenditure?.replace(/,/g, "")) || 0
+        // });
+        setTotals(data.totals_by_currency || {});
       })
       .catch((error) => console.error("Error fetching expenses:", error));
   }, [filters]); 
@@ -52,11 +54,12 @@ export const ExpenseProvider = (props) => {
         .then((response) => response.json())
         .then((data) => {
           setExpense({ data: data.data || [] });
-          setTotals({
-            actual_total_expenditure: Number(data.actual_total_expenditure?.replace(/,/g, "")) || 0,
-            non_essential_expenditure: Number(data.non_essential_expenditure?.replace(/,/g, "")) || 0,
-            essential_expenditure: Number(data.essential_expenditure?.replace(/,/g, "")) || 0
-          });
+          // setTotals({
+          //   actual_total_expenditure: Number(data.actual_total_expenditure?.replace(/,/g, "")) || 0,
+          //   non_essential_expenditure: Number(data.non_essential_expenditure?.replace(/,/g, "")) || 0,
+          //   essential_expenditure: Number(data.essential_expenditure?.replace(/,/g, "")) || 0
+          // });
+          setTotals(data.totals_by_currency || {});
         })
         .catch((error) => console.error("Error refreshing expenses:", error));
     };

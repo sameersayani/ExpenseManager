@@ -55,7 +55,8 @@ export const UpdateExpenseProvider = ({ children }) => {
                     unit_price: updatedData.unit_price,
                     amount: updatedData.amount,
                     really_needed: updatedData.really_needed,
-                    expense_type_id: updatedData.expense_type_id
+                    expense_type_id: updatedData.expense_type_id,
+                    currency: updatedData.currency
                 }),
             });
 

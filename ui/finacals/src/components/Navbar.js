@@ -31,11 +31,13 @@ const NavBar = () => {
   
         if (result.status === "OK" && result.data.length > 0) {
           setExpense({"data" : [...result.data]})
-          setTotals({
-            actual_total_expenditure: Number(result.actual_total_expenditure?.replace(/,/g, "")) || 0,
-            non_essential_expenditure: Number(result.non_essential_expenditure?.replace(/,/g, "")) || 0,
-            essential_expenditure: Number(result.essential_expenditure?.replace(/,/g, "")) || 0,
-          });
+          // setTotals({
+          //   actual_total_expenditure: Number(result.actual_total_expenditure?.replace(/,/g, "")) || 0,
+          //   non_essential_expenditure: Number(result.non_essential_expenditure?.replace(/,/g, "")) || 0,
+          //   essential_expenditure: Number(result.essential_expenditure?.replace(/,/g, "")) || 0,
+          // });
+          
+          setTotals(result.totals_by_currency || {});
           setSearchError("");
           setNavbarSearch("y");
           navigate("/");

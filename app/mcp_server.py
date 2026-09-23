@@ -82,13 +82,14 @@ async def create_user_expense(
     date: str,
     name: str,
     expense_type_id: int,
+    currency: str,
     quantity_purchased: int = 1,
     unit_price: float | None = None,
     amount: float | None = None,
     really_needed: bool = False,
     classification_reason: str | None = None,
 ) -> dict[str, Any]:
-    """Create an expense for the authenticated user. Provide exactly one positive money field."""
+    """Create an expense for the authenticated user. Provide exactly one positive money field. Currency is required."""
     payload = DailyExpenseCreate(
         date=datetime.fromisoformat(date),
         name=name,
@@ -96,6 +97,7 @@ async def create_user_expense(
         unit_price=unit_price,
         amount=amount,
         really_needed=really_needed,
+        currency=currency,
     )
     return {"data": await create_expense(_user(), payload, expense_type_id)}
 
@@ -109,6 +111,7 @@ async def update_user_expense(
     quantity_purchased: int | None = None,
     unit_price: float | None = None,
     amount: float | None = None,
+    currency: str | None = None,
     really_needed: bool | None = None,
     classification_reason: str | None = None,
 ) -> dict[str, Any]:
@@ -121,6 +124,7 @@ async def update_user_expense(
             "quantity_purchased": quantity_purchased,
             "unit_price": unit_price,
             "amount": amount,
+            "currency": currency,
             "really_needed": really_needed,
         }.items() if value is not None
     }

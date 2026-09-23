@@ -1,13 +1,14 @@
 import react from "react";
+import { formatAmount } from "../utils/formatAmount";
 
-const ExpenseRow = ({id, date, name, quantity_purchased, unit_price, amount, really_needed, handleDelete, handleUpdate, openModal }) => {
+const ExpenseRow = ({id, date, name, quantity_purchased, unit_price, amount, currency, really_needed, handleDelete, handleUpdate, openModal }) => {
     return (
         <tr className="expense-row">
             <td>{date}</td>
             <td>{name}</td>
             <td>{quantity_purchased}</td>
-            <td>{unit_price}</td>
-            <td>{amount}</td>
+            <td>{formatAmount(unit_price, currency)}</td>
+            <td>{formatAmount(amount, currency)}</td>
             <td>{really_needed}</td>
             <td className="expense-row__actions">
                 <button onClick={() => handleUpdate(id)} className="btn btn-outline-info btn-sm">Update</button>

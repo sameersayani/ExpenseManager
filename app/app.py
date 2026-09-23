@@ -1,5 +1,5 @@
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 import io
 import json
 from fastapi import FastAPI, APIRouter, HTTPException, Query, Depends, Response, requests, status
@@ -42,6 +42,7 @@ from fastapi.openapi.docs import get_swagger_ui_html
 from pathlib import Path
 from app.auth_mobile import router as mobile_auth_router
 import jwt
+from collections import defaultdict
 
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 # Initialize FastAPI app
@@ -126,12 +127,12 @@ async def get_current_user(request: Request):
         token = auth_header.split(" ", 1)[1]
         try:
             payload = jwt.decode(token, os.getenv("SECRET_KEY"), algorithms=["HS256"])
-            print("DEBUG payload:", payload)
+            # print("DEBUG payload:", payload)
         except jwt.ExpiredSignatureError:
-            print("ExpiredSignatureError")
+            # print("ExpiredSignatureError")
             raise HTTPException(status_code=401, detail="Token has expired")
         except jwt.PyJWTError as e:
-            print("PyJWTError:", str(e))   # <-- this line, print the actual message
+            # print("PyJWTError:", str(e))   # <-- this line, print the actual message
             raise HTTPException(status_code=401, detail="Could not validate credentials")
 
         email = payload.get("sub")
@@ -178,8 +179,8 @@ def welcome(request: Request):
 
 @app.get("/login")
 async def login(request: Request):
-    print("DEBUG CLIENT_ID:", GOOGLE_CLIENT_ID)
-    print("DEBUG CLIENT_SECRET:", GOOGLE_CLIENT_SECRET)
+    # print("DEBUG CLIENT_ID:", GOOGLE_CLIENT_ID)
+    # print("DEBUG CLIENT_SECRET:", GOOGLE_CLIENT_SECRET)
 
     url = request.url_for('auth')
     return await oauth.google.authorize_redirect(request, url)
@@ -267,6 +268,7 @@ async def confirm_ai_classification(
                 unit_price=arguments.get("unit_price"),
                 amount=arguments.get("amount"),
                 really_needed=arguments["really_needed"],
+                currency=arguments.get("currency", "INR"),
             ),
             arguments["expense_type_id"],
         )
@@ -317,43 +319,51 @@ async def delete_expensetype(expensetype_id: int, user: dict = Depends(get_curre
 
 # Daily Expense Endpoints
 @app.get('/dailyexpense')
-async def all_expenses(month: Optional[int] = None, year: Optional[int] = None, 
-                       user: dict = Depends(get_current_user)):
+async def all_expenses(
+    month: Optional[int] = None,
+    year: Optional[int] = None,
+    user: dict = Depends(get_current_user),
+):
     user_info = await get_or_create_user_info(user)
 
     query = DailyExpense.filter(user_id=user_info.id).prefetch_related('expense_type')
     response = await DailyExpenseWithExpenseType.from_queryset(query)
     response_list = jsonable_encoder(response)
+
     for expense in response_list:
         expense["user_id"] = user_info.id
 
     if month and year:
         filtered_expenses = [
             expense for expense in response_list
-            if expense.get("date") and
-               datetime.fromisoformat(expense["date"].replace("Z", "")).month == month and
-               datetime.fromisoformat(expense["date"].replace("Z", "")).year == year
+            if expense.get("date")
+            and datetime.fromisoformat(expense["date"].replace("Z", "")).month == month
+            and datetime.fromisoformat(expense["date"].replace("Z", "")).year == year
         ]
     else:
         filtered_expenses = response_list
 
-    # Ensure amount is always a float
-    total_expenditure = sum(float(expense.get("amount") or 0) for expense in filtered_expenses)
+    # ===== Totals grouped by currency =====
+    totals_by_currency = defaultdict(lambda: {
+        "actual": 0.0,
+        "non_essential": 0.0,
+        "essential": 0.0,
+    })
 
-    # Filter and sum non-essential expenses
-    non_essential_expenditure = sum(
-        float(expense.get("amount") or 0) for expense in filtered_expenses if not expense.get("really_needed", False)
-    )
+    for expense in filtered_expenses:
+        curr = expense.get("currency")
+        amount = float(expense.get("amount") or 0)
+        totals_by_currency[curr]["actual"] += amount
+        if not expense.get("really_needed", False):
+            totals_by_currency[curr]["non_essential"] += amount
 
-    # Essential expenditure = total - non-essential
-    essential_expenditure = total_expenditure - non_essential_expenditure
+    for curr, values in totals_by_currency.items():
+        values["essential"] = values["actual"] - values["non_essential"]
 
     return JSONResponse(content={
         "status": "OK",
-        "actual_total_expenditure": format_indian_currency(total_expenditure),  # Ensure this function handles numbers
-        "non_essential_expenditure": format_indian_currency(non_essential_expenditure),
-        "essential_expenditure": format_indian_currency(essential_expenditure),
-        "data": filtered_expenses
+        "totals_by_currency": dict(totals_by_currency),
+        "data": filtered_expenses,
     })
 
 @app.get('/dailyexpense/{id}')
@@ -390,20 +400,30 @@ async def search_expense_by_product(name: str, user: dict = Depends(get_current_
 
     expense_data = [await DailyExpenseWithExpenseType.from_tortoise_orm(expense) for expense in expenses]
     expense_data = jsonable_encoder(expense_data)
+
     for expense in expense_data:
         expense["user_id"] = user_info.id
 
-    total_expenditure = sum(float(expense.get("amount") or 0) for expense in expense_data)
-    non_essential_expenditure = sum(
-        float(expense.get("amount") or 0)
-        for expense in expense_data
-        if not expense.get("really_needed", False)
-    )
+    # ===== Totals grouped by currency =====
+    totals_by_currency = defaultdict(lambda: {
+        "actual": 0.0,
+        "non_essential": 0.0,
+        "essential": 0.0,
+    })
+
+    for expense in expense_data:
+        curr = expense.get("currency")
+        amount = float(expense.get("amount") or 0)
+        totals_by_currency[curr]["actual"] += amount
+        if not expense.get("really_needed", False):
+            totals_by_currency[curr]["non_essential"] += amount
+
+    for curr, values in totals_by_currency.items():
+        values["essential"] = values["actual"] - values["non_essential"]
+
     return JSONResponse(content={
         "status": "OK",
-        "actual_total_expenditure": format_indian_currency(total_expenditure),
-        "non_essential_expenditure": format_indian_currency(non_essential_expenditure),
-        "essential_expenditure": format_indian_currency(total_expenditure - non_essential_expenditure),
+        "totals_by_currency": dict(totals_by_currency),
         "data": expense_data,
     })
 
@@ -464,12 +484,36 @@ async def update_daily_expense(
     if not update_data:
         raise HTTPException(status_code=400, detail="No valid fields provided for update")
 
-    for key, value in update_data.items():
-        setattr(db_expense, key, value)
+    # 1. Gather incoming updates or inherit current database state
+    qty = update_data.get("quantity_purchased", db_expense.quantity_purchased)
+    u_price = update_data.get("unit_price", db_expense.unit_price)
+    amt_input = update_data.get("amount", db_expense.amount)
 
-    db_expense.updatedon = datetime.utcnow()
+    # 2. Fix calculation rules based on inputs
+    if u_price > 0:
+        update_data["amount"] = qty * u_price
+    elif u_price == 0 and amt_input > 0:
+        # Fallback fix: If unit price is 0 but amount payload is passed, multiply it by quantity
+        update_data["amount"] = qty * amt_input
+
+    # 3. Apply changes to standard properties
+    for key, value in update_data.items():
+        if key not in ["currency", "expense_type_id"]:
+            setattr(db_expense, key, value)
+
+    # 4. Explicitly map relational and currency property adjustments
+    if "currency" in update_data:
+        db_expense.currency = update_data["currency"]
+        
+    if "expense_type_id" in update_data:
+        new_type = await ExpenseType.get_or_none(id=update_data["expense_type_id"])
+        if new_type:
+            db_expense.expense_type = new_type
+
+    db_expense.updatedon = datetime.now(timezone.utc)
     db_expense.updatedby = user_info.email
     await db_expense.save()
+    
     updated_expense = await DailyExpenseWithExpenseType.from_tortoise_orm(db_expense)
     updated_expense = jsonable_encoder(updated_expense)
     updated_expense["user_id"] = user_info.id
@@ -540,23 +584,15 @@ async def get_chart_data(month: Optional[int] = None, year: Optional[int] = None
 
 @app.get('/download-report', response_class=Response)
 async def download_expense_report(
-    month: Optional[int] = Query(None), 
+    month: Optional[int] = Query(None),
     year: Optional[int] = Query(...),
     user: dict = Depends(get_current_user)
 ):
-    """
-    Generates an Excel (XLSX) report of expenses for the given month and year.
-    - If month is provided, it generates a **monthly report**.
-    - If month is omitted, it generates a **yearly report**.
-    """
-
-    # Fetch all expenses
     user_info = await get_or_create_user_info(user)
     query = DailyExpense.filter(user_id=user_info.id).prefetch_related("expense_type")
     response = await DailyExpenseWithExpenseType.from_queryset(query)
     response_list = jsonable_encoder(response)
 
-    # Filter based on month & year 
     filtered_expenses = [
         expense for expense in response_list
         if expense.get("date") and
@@ -564,54 +600,76 @@ async def download_expense_report(
            (month is None or datetime.fromisoformat(expense["date"].replace("Z", "")).month == month)
     ]
 
+    """
+    Generates an Excel (XLSX) report of expenses for the given month and year.
+    - If month is provided, it generates a **monthly report**.
+    - If month is omitted, it generates a **yearly report**.
+    """
     if not filtered_expenses:
-        return JSONResponse(content={"status": "ERROR", "message": "No expenses found for the given period"})
+        return JSONResponse(
+            content={"status": "ERROR", "message": "No expenses found for the given period"}
+        )
 
-    # Create an Excel workbook and worksheet
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = f"Expenses_{year}_{month if month else 'FullYear'}"
 
-    # Add headers
-    headers = ["Date", "Category", "Amount"]
+    # Headers – added Currency
+    headers = ["Date", "Category", "Product/Service", "Amount", "Currency", "Really Needed"]
     ws.append(headers)
 
-    # Ensure that amount is never None, defaulting to 0
-    total_expenditure = sum(expense.get("amount") or 0 for expense in filtered_expenses)
+    # Totals by currency
+    totals_by_currency = defaultdict(lambda: {
+        "actual": 0.0,
+        "non_essential": 0.0,
+        "essential": 0.0,
+    })
 
-    # Ensure that expenses without "really_needed" default to False
-    non_essential_expenditure = sum(
-        (expense.get("amount") or 0) for expense in filtered_expenses if not expense.get("really_needed", False)
-    )
-
-    # Essential expenditure (all expenses - non-essential expenses)
-    essential_expenditure = total_expenditure - non_essential_expenditure
-
-    # Add data to worksheet
     for expense in filtered_expenses:
+        curr = expense.get("currency")
+        amount = float(expense.get("amount") or 0)
+
+        totals_by_currency[curr]["actual"] += amount
+        if not expense.get("really_needed", False):
+            totals_by_currency[curr]["non_essential"] += amount
+
         ws.append([
-            expense["date"].replace("T00:00:00Z",""),
-            expense["expense_type"]["name"],  # Assuming expense_type has a "name" field
-            expense["amount"]
+            expense["date"].replace("T00:00:00Z", "").split("T")[0],
+            expense["expense_type"]["name"] if expense.get("expense_type") else "",
+            expense.get("name", ""),
+            amount,
+            curr,
+            "Yes" if expense.get("really_needed") else "No",
         ])
 
-    # Insert empty row before totals
+    for curr, values in totals_by_currency.items():
+        values["essential"] = values["actual"] - values["non_essential"]
+
+    # Empty row
     ws.append([])
 
-    # Add totals
-    ws.append(["", "Actual Total Expenditure", total_expenditure])
-    ws.append(["", "Non-Essential Expenditure", non_essential_expenditure])
-    ws.append(["", "Desired Essential Expenditure", essential_expenditure])
+    # Totals section
+    ws.append(["", "", "TOTALS BY CURRENCY"])
+    ws.append(["Currency", "Actual Total", "Overspend (Non-essential)", "Desired Total (Essential)"])
+
+    for curr, values in totals_by_currency.items():
+        ws.append([
+            curr,
+            values["actual"],
+            values["non_essential"],
+            values["essential"],
+        ])
 
     output = io.BytesIO()
     wb.save(output)
     output.seek(0)
 
-    # Prepare response with Excel data
     filename = f"expenses_{year}_{month if month else 'full_year'}.xlsx"
-    response = Response(content=output.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    response = Response(
+        content=output.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
     response.headers["Content-Disposition"] = f"attachment; filename={filename}"
-
     return response
 
 @app.delete('/delete-expenses')
@@ -647,15 +705,30 @@ async def delete_expenses(
 
     return JSONResponse(content={"status": "OK", "message": f"Deleted {count} records successfully"})
 
-def format_indian_currency(amount):
-    amount_str = f"{amount:,}"  # Default formatting with commas
-    parts = amount_str.split(",")
 
-    # Apply Indian number formatting
-    if len(parts) > 1:
-        return parts[0] + "," + ",".join(parts[1:]).replace(",", "")
+def format_currency(amount: float, currency: str = "INR") -> str:
+    symbols = {
+        "INR": "₹",
+        "USD": "$",
+        "EUR": "€",
+        "GBP": "£",
+        "AED": "د.إ"
+    }
+    symbol = symbols.get(currency, currency + " ")
 
-    return amount_str
+    if currency == "INR":
+        # Indian numbering system
+        amount_str = f"{amount:,.2f}"
+        parts = amount_str.split(".")
+        integer = parts[0].replace(",", "")
+        if len(integer) > 3:
+            last3 = integer[-3:]
+            rest = integer[:-3]
+            rest = ",".join([rest[max(i-2,0):i] for i in range(len(rest), 0, -2)][::-1])
+            integer = rest + "," + last3 if rest else last3
+        return f"{symbol}{integer}.{parts[1]}"
+    else:
+        return f"{symbol}{amount:,.2f}"
 
 @app.get("/docs", include_in_schema=False)
 async def custom_swagger_ui(user: dict = Depends(get_current_user)):

@@ -16,6 +16,7 @@ class DailyExpenseCreate(BaseModel):
     unit_price: float = 0.00
     amount: float = 0.00
     really_needed: bool = False
+    currency: str = ""
 
     @field_validator("unit_price", "amount", mode="before")
     @classmethod
@@ -24,6 +25,13 @@ class DailyExpenseCreate(BaseModel):
             return 0
         return value
 
+    @field_validator("currency")
+    @classmethod
+    def validate_currency(cls, v):
+        allowed = {"INR", "USD", "EUR", "GBP", "AED"}
+        if v not in allowed:
+            raise ValueError(f"currency must be one of {allowed}")
+        return v
 class DailyExpenseUpdate(BaseModel):
     date: datetime  
     name: str
@@ -32,6 +40,7 @@ class DailyExpenseUpdate(BaseModel):
     amount: float = 0.00
     really_needed: bool = False
     expense_type_id: int  # Expecting this in the payload
+    currency: str = ""
 
     @field_validator("unit_price", "amount", mode="before")
     @classmethod
@@ -48,6 +57,7 @@ class DailyExpense(Model):
     unit_price = fields.FloatField(max_digits=8, decimal_places=2, default=0.00)
     amount = fields.FloatField(max_digits=8, decimal_places=2, default=0.00)
     really_needed = fields.BooleanField(default = False)
+    currency = fields.CharField(max_length=3, default="INR")
     expense_type = fields.ForeignKeyField(
         'models.ExpenseType',
         related_name="typeof_expense",
@@ -88,7 +98,7 @@ daily_expense_pydantic = pydantic_model_creator(
     name="DailyExpense",
     include=(
         "id", "date", "name", "quantity_purchased", "unit_price", "amount",
-        "really_needed", "expense_type", "user_id", "createdon", "createdby",
+        "really_needed", "currency", "expense_type", "user_id", "createdon", "createdby",
         "updatedon", "updatedby",
     )
 )

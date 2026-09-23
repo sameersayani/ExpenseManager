@@ -3,10 +3,13 @@ import ExpenseTypeist from "./ExpenseType";
 import DatePicker from "./DatePicker";
 import { useNavigate } from "react-router-dom";
 import {API_BASE_URL} from "../config";
+import { useCurrency } from "../hooks/useCurrency";
+import CurrencySelect from './CurrencySelect';
 
 const AddExpenseForm = () => {
   const navigate = useNavigate();
   const [showModal, setShowModal] = useState(false);
+  const [selectedCurrency] = useCurrency();
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split("T")[0],
     name: "",
@@ -15,6 +18,7 @@ const AddExpenseForm = () => {
     amount: 0,
     really_needed: false,
     expense_type: null,
+    currency: selectedCurrency || "",
   });
 
   const [loading, setLoading] = useState(false);
@@ -71,6 +75,9 @@ const AddExpenseForm = () => {
     }
     if (formData.quantity_purchased <= 0) {
       newErrors.quantity_purchased = "Quantity must be greater than 0";
+    }
+    if (!formData.currency) {
+      newErrors.currency = "Please select a currency";
     }
     return newErrors;
   };
@@ -154,11 +161,33 @@ const AddExpenseForm = () => {
             Unit Price
           </label>
         <input type="number" name="unit_price" placeholder="Unit Price" value={formData.unit_price} onChange={handleInputChange} className="w-full p-3 border rounded-md" />
+       {/* Amount */}
         <label htmlFor="amount" className="block text-sm font-medium text-gray-700">
-            Amount
-          </label>
-        <input type="number" name="amount" placeholder="Amount" value={formData.amount} onChange={handleInputChange} className="w-full p-3 border rounded-md" />
-        <label className="text-sm font-medium text-gray-700">Do you really need this?</label>
+          Amount
+        </label>
+        <input
+          type="number"
+          name="amount"
+          placeholder="Amount"
+          value={formData.amount}
+          onChange={handleInputChange}
+          className="w-full p-3 border rounded-md"
+        />
+
+        {/* ===== CURRENCY (correct place) ===== */}
+        <CurrencySelect
+          value={formData.currency}
+          onChange={(code) => {
+            setFormData((prev) => ({ ...prev, currency: code }));
+            setErrors((prev) => ({ ...prev, currency: "" }));
+          }}
+          error={errors.currency}
+        />
+
+        {/* Do you really need this? */}
+        <label className="block text-sm font-medium text-gray-700 mt-4">
+          Do you really need this?
+        </label>
         <label className="flex items-center space-x-2">
           <input
             type="radio"
