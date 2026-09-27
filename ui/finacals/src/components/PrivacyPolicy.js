@@ -9,8 +9,8 @@ const PrivacyPolicy = () => {
       <p>ExpenseManager ("we", "our", or "us") respects your privacy. This Privacy Policy explains how we collect, use, and safeguard your information when you use our application.</p>
       
       <h2>1. Information We Collect</h2>
-      <p><strong>Google OAuth Data:</strong> When you log in via Google OAuth, we access your public profile information (such as your name and email address) to authenticate your account and personalize your profile.</p>
-      <p><strong>Financial Data:</strong> We store the expenses, products, and supplier details that you explicitly input into the application to provide tracking features.</p>
+      <p><strong>Google OAuth Data:</strong> When you log in via Google OAuth, we only access your public profile information (such as your name and email address only) to authenticate your account to use the smart expense management system.</p>
+      <p><strong>Financial Data:</strong> We store the expenses and products details that you explicitly input into the application to provide you expense tracking features.</p>
       
       <h2>2. How We Use Your Information</h2>
       <p>We use your information solely to maintain, secure, and operate the ExpenseManager platform, including running local AI analysis or external LLM classifications based on your backend settings.</p>
