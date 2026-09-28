@@ -29,14 +29,46 @@ const DownloadReportModal = ({ isOpen, onClose }) => {
   const [year, setYear] = useState("");
   const [month, setMonth] = useState("");
 
-  const handleDownload = () => {
-    let url = `${API_BASE_URL}/download-report?year=${year}`;
-    if (month) {
-      url += `&month=${month}`;
+  const handleDownload = async () => {
+  try {
+    const params = new URLSearchParams();
+    if (year) params.append("year", year);
+    if (month) params.append("month", month);
+
+    // Important: hit backend explicitly in local if API_BASE_URL is ""
+    const backendOrigin =
+      process.env.REACT_APP_API_BASE_URL ||
+      (process.env.NODE_ENV === "production"
+        ? "https://expensemanager-0ac3.onrender.com"
+        : "http://127.0.0.1:8000");
+
+    const url = `${backendOrigin}/download-report?${params.toString()}`;
+
+    const res = await fetch(url, {
+      method: "GET",
+      credentials: "include", // send session cookie
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(err.message || err.detail || "Failed to download report");
+      return;
     }
 
-    window.open(url, "_blank"); // Open in new tab to trigger file download
-  };
+    const blob = await res.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = downloadUrl;
+    a.download = `expenses_${year}${month ? `_${month}` : ""}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(downloadUrl);
+  } catch (e) {
+    console.error(e);
+    // alert("Download failed. Please try again.");
+  }
+};
 
   return (
     <Modal isOpen={isOpen} onRequestClose={onClose} style={customStyles}>

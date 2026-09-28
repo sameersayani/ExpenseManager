@@ -16,7 +16,8 @@ from app.models import (
     DailyExpenseCreate,
     expensetpye_pydantic, expensetpye_pydantic_in, ExpenseType, ExpenseTypeUpdate,
     daily_expense_pydantic, daily_expense_pydantic_in,
-    DailyExpense, DailyExpenseWithExpenseType, UserInfo
+    DailyExpense, DailyExpenseWithExpenseType, UserInfo,
+    RegisterRequest, LoginRequest
 )
 from app.ai_service import run_chat
 from app.schemas_ai import (
@@ -44,6 +45,8 @@ from app.auth_mobile import router as mobile_auth_router
 import jwt
 from collections import defaultdict
 
+from app.util import hash_password, verify_password
+
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 # Initialize FastAPI app
 app = FastAPI()
@@ -67,19 +70,30 @@ app.include_router(mobile_auth_router)
 # ✅ Add SessionMiddleware FIRST
 
 IS_PRODUCTION = os.getenv("ENVIRONMENT", "development") == "production"
+# Allowed frontend origins (exact match, no trailing slash)
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://expensemanager-1-3sb6.onrender.com",
+]
+# Also allow env override
+_react = os.getenv("REACT_BASE_URL") or REACT_BASE_URL
+if _react and _react.rstrip("/") not in ALLOWED_ORIGINS:
+    ALLOWED_ORIGINS.append(_react.rstrip("/"))
 
 app.add_middleware(
     SessionMiddleware,
-    secret_key=os.getenv("SECRET_KEY", GOOGLE_CLIENT_SECRET),
+    secret_key=os.getenv("SECRET_KEY") or GOOGLE_CLIENT_SECRET or "change-me-in-production",
     session_cookie="session_id",
+    max_age=14 * 24 * 60 * 60,  # 14 days
     same_site="none" if IS_PRODUCTION else "lax",
-    https_only=IS_PRODUCTION,  # SameSite=None requires Secure (HTTPS)
+    https_only=IS_PRODUCTION,
 )
 
 # # CORS setup
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[os.getenv("REACT_BASE_URL", REACT_BASE_URL)],  # Allow all origins
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -208,7 +222,7 @@ def get_user(request: Request, user: dict = Depends(get_current_user)):
     return JSONResponse(content={"user": user})
 
 @app.get('/logout')
-def logout(request: Request, user: dict = Depends(get_current_user)):
+def logout(request: Request):
     auth_header = request.headers.get("authorization")
 
     if auth_header and auth_header.lower().startswith("bearer "):
@@ -217,10 +231,13 @@ def logout(request: Request, user: dict = Depends(get_current_user)):
         # the token; nothing left for the backend to do but acknowledge it.
         return JSONResponse(content={"status": "OK", "message": "Logged out"})
 
-    # Web flow — unchanged, just made pop() safe if the key is already gone
-    request.session.pop('user', None)
+    # Web (Google + username/password): clear session
+    request.session.pop("user", None)
     request.session.clear()
-    return RedirectResponse('/')
+
+    # Always send user back to React login page
+    react_base = (os.getenv("REACT_BASE_URL") or REACT_BASE_URL or "http://localhost:3000").rstrip("/")
+    return RedirectResponse(url=f"{react_base}/login")
 
 # Health Check
 @app.get("/api/health")
@@ -748,3 +765,66 @@ async def protected(user: dict = Depends(get_current_user)):
 #     add_exception_handlers=True
 # )
 
+@app.post("/api/auth/register")
+async def register(data: RegisterRequest):
+    # Check if username or email already exists
+    existing = await UserInfo.get_or_none(username=data.username)
+    if existing:
+        raise HTTPException(status_code=400, detail="Username already taken")
+
+    existing_email = await UserInfo.get_or_none(email=data.email)
+    if existing_email:
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    user = await UserInfo.create(
+        username=data.username,
+        email=data.email,
+        password_hash=hash_password(data.password),
+        createdby=data.username,
+    )
+    return {"status": "OK", "message": "Registered successfully", "user_id": user.id}
+
+@app.post("/api/auth/login")
+async def password_login(data: LoginRequest, request: Request):
+    user = await UserInfo.get_or_none(username=data.username)
+    if not user:
+        user = await UserInfo.get_or_none(email=data.username)
+
+    if not user or not user.password_hash:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+
+    if not verify_password(data.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+
+    request.session["user"] = {
+        "email": user.email,
+        "name": user.username or user.email,
+        "given_name": user.username or (user.email.split("@")[0] if user.email else "User"),
+        "family_name": "",
+        "picture": None,
+    }
+
+    return {
+        "status": "OK",
+        "message": "Logged in",
+        "user": request.session["user"],
+    }
+
+@app.get("/auth")
+async def auth(request: Request):
+    try:
+        token = await oauth.google.authorize_access_token(request)
+    except OAuthError as e:
+        return templates.TemplateResponse(
+            name="error.html",
+            context={"request": request, "error": e.error},
+        )
+
+    user = token.get("userinfo")
+    if user:
+        user = dict(user)
+        await get_or_create_user_info(user)
+        request.session["user"] = user
+
+    react_base = (os.getenv("REACT_BASE_URL") or REACT_BASE_URL or "http://localhost:3000").rstrip("/")
+    return RedirectResponse(url=f"{react_base}/")

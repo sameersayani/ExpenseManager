@@ -73,8 +73,17 @@ const NavBar = () => {
   }, []);
 
   // Logout function
-  const handleLogout = () => {
-      window.location.href = `${API_BASE_URL}/logout`; // Redirects to FastAPI logout
+  const handleLogout = async (e) => {
+    e.preventDefault();
+    try {
+      await fetch(`${API_BASE_URL}/logout`, {
+        method: "GET",
+        credentials: "include",
+      });
+    } catch (err) {
+      // ignore network errors; still go to login
+    }
+    window.location.href = "/login";
   };
 
     return(
@@ -141,8 +150,9 @@ const NavBar = () => {
                         </span>
 
                         {/* Logout Button */}
-                        <a 
-                            href={`${API_BASE_URL}/logout`} 
+                        <a
+                            href="/login"
+                            onClick={handleLogout}
                             style={{
                                 color: "orange",
                                 fontSize: "14px",
@@ -152,15 +162,15 @@ const NavBar = () => {
                                 marginRight: "25px",
                                 transition: "color 0.3s"
                             }}
-                            onMouseOver={(e) => e.target.style.color = "#ff9800"}
-                            onMouseOut={(e) => e.target.style.color = "orange"}
+                            onMouseOver={(e) => (e.target.style.color = "#ff9800")}
+                            onMouseOut={(e) => (e.target.style.color = "orange")}
                         >
                             Logout
                         </a>
                     </div>
                 ) : (
                     <a 
-                        href={`${API_BASE_URL}/login`}
+                        href={`/login`}
                         style={{
                             color: "green",
                             fontSize: "20px",
@@ -172,7 +182,7 @@ const NavBar = () => {
                         onMouseOver={(e) => e.target.style.color = "#4CAF50"}
                         onMouseOut={(e) => e.target.style.color = "green"}
                     >
-                        Login with Google
+                        Signin
                     </a>
                 )}
             </div>

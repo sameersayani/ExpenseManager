@@ -3,6 +3,7 @@ from pydantic import BaseModel, field_validator
 from tortoise.models import Model
 from tortoise import fields
 from tortoise.contrib.pydantic import pydantic_model_creator
+from pydantic import BaseModel, EmailStr, field_validator
 class ExpenseType(Model):
     id = fields.IntField(pk=True)
     name = fields.CharField(max_length=100)
@@ -77,6 +78,8 @@ class DailyExpense(Model):
 class UserInfo(Model):
     id = fields.IntField(pk=True)
     email = fields.CharField(max_length=256)
+    username = fields.CharField(max_length=100, unique=True, null=True)  # optional for Google users
+    password_hash = fields.CharField(max_length=255, null=True)         # null for Google-only users
     createdon = fields.DatetimeField(auto_now_add=True)
     createdby = fields.CharField(max_length=200)
 
@@ -112,3 +115,28 @@ daily_expense_pydantic_in = pydantic_model_creator(
 
 class DailyExpenseWithExpenseType(daily_expense_pydantic):
     expense_type: expensetpye_pydantic   
+
+class RegisterRequest(BaseModel):
+    username: str
+    email: EmailStr
+    password: str
+
+    @field_validator("username")
+    @classmethod
+    def username_ok(cls, v):
+        v = v.strip()
+        if len(v) < 3:
+            raise ValueError("Username must be at least 3 characters")
+        return v
+
+    @field_validator("password")
+    @classmethod
+    def password_ok(cls, v):
+        if len(v) < 6:
+            raise ValueError("Password must be at least 6 characters")
+        return v
+
+
+class LoginRequest(BaseModel):
+    username: str   # username or email
+    password: str

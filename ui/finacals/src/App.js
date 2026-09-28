@@ -12,6 +12,8 @@ import AiChat from "./components/AiChat";
 import Parent, { Child } from "./test";
 import { API_BASE_URL } from "./config";
 import PrivacyPolicy from './components/PrivacyPolicy';
+import Login from "./components/Login";
+import Register from "./components/Register";
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -80,6 +82,8 @@ function App() {
                   <Route path="/privacy" element={<PrivacyPolicy />} />
                   <Route path="/test" element={<Parent />} />
                   <Route path="/test" element={<Child />} />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/register" element={<Register />} />
                 </Routes>
               </UpdateExpenseProvider>
             </div>
