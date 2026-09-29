@@ -200,23 +200,23 @@ async def login(request: Request):
     url = request.url_for('auth')
     return await oauth.google.authorize_redirect(request, url)
 
-@app.get('/auth')
-async def auth(request: Request):
-    try:
-        token = await oauth.google.authorize_access_token(request)
-    except OAuthError as e:
-        return templates.TemplateResponse(
-            name='error.html',
-            context={'request': request, 'error': e.error}
-        )
+# @app.get('/auth')
+# async def auth(request: Request):
+#     try:
+#         token = await oauth.google.authorize_access_token(request)
+#     except OAuthError as e:
+#         return templates.TemplateResponse(
+#             name='error.html',
+#             context={'request': request, 'error': e.error}
+#         )
     
-    user = token.get('userinfo')
-    if user:
-        user = dict(user)
-        await get_or_create_user_info(user)
-        request.session['user'] = user
+#     user = token.get('userinfo')
+#     if user:
+#         user = dict(user)
+#         await get_or_create_user_info(user)
+#         request.session['user'] = user
 
-    return RedirectResponse(REACT_BASE_URL+"/")
+#     return RedirectResponse(REACT_BASE_URL+"/")
 
 @app.get("/user")
 def get_user(request: Request, user: dict = Depends(get_current_user)):
