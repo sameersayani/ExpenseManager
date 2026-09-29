@@ -15,6 +15,7 @@ const NavBar = () => {
     const [deleteConfirmText, setDeleteConfirmText] = useState("");
     const [deleteLoading, setDeleteLoading] = useState(false);
     const [deleteError, setDeleteError] = useState("");
+    const [deletePassword, setDeletePassword] = useState("");
     
     const updateSearch = (e) => {
         setSearch(e.target.value);
@@ -91,23 +92,25 @@ const NavBar = () => {
     window.location.href = "/login";
   };
 
-  const openDeleteModal = () => {
-    setShowSettings(false);
-    setDeleteConfirmText("");
-    setDeleteError("");
-    setShowDeleteModal(true);
-  };
+const openDeleteModal = () => {
+  setShowSettings(false);
+  setDeleteConfirmText("");
+  setDeletePassword("");
+  setDeleteError("");
+  setShowDeleteModal(true);
+};
 
-  const closeDeleteModal = () => {
-    if (deleteLoading) return;
-    setShowDeleteModal(false);
-    setDeleteConfirmText("");
-    setDeleteError("");
-  };
-
+const closeDeleteModal = () => {
+  if (deleteLoading) return;
+  setShowDeleteModal(false);
+  setDeleteConfirmText("");
+  setDeletePassword("");
+  setDeleteError("");
+};
+  
 const handleDeleteAccount = async () => {
   if (deleteConfirmText !== "DELETE") {
-    setDeleteError('Please type DELETE to confirm.');
+    setDeleteError("Please type DELETE to confirm.");
     return;
   }
 
@@ -118,7 +121,12 @@ const handleDeleteAccount = async () => {
     const res = await fetch(`${API_BASE_URL}/api/auth/delete-account`, {
       method: "DELETE",
       credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        password: deletePassword || null,
+      }),
     });
+
     const data = await res.json().catch(() => ({}));
 
     if (!res.ok) {
@@ -327,7 +335,31 @@ const handleDeleteAccount = async () => {
         This will permanently delete your account and <strong>all expenses</strong>.
         This action cannot be undone.
       </p>
-
+      <label style={{ display: "block", fontSize: "13px", fontWeight: 600, marginBottom: "6px" }}>
+  Password
+</label>
+  <input
+    type="password"
+    value={deletePassword}
+    onChange={(e) => {
+      setDeletePassword(e.target.value);
+      setDeleteError("");
+    }}
+    placeholder="Enter your account password"
+    disabled={deleteLoading}
+    style={{
+      width: "100%",
+      padding: "10px 12px",
+      border: "1px solid #ced4da",
+      borderRadius: "8px",
+      fontSize: "14px",
+      marginBottom: "12px",
+      boxSizing: "border-box",
+    }}
+/>    
+      <p style={{ fontSize: "12px", color: "#6c757d", margin: "0 0 12px" }}>
+        Required for email/password accounts. Leave blank if you signed in with Google only.
+      </p>
       <label style={{ display: "block", fontSize: "13px", fontWeight: 600, marginBottom: "6px" }}>
         Type <span style={{ color: "#dc3545" }}>DELETE</span> to confirm
       </label>
