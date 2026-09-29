@@ -277,17 +277,22 @@ const handleDeleteAccount = async () => {
     </div>
   ) : (
     <a
-      href="/login"
-      style={{
-        color: "green",
-        fontSize: "20px",
-        fontWeight: "bold",
-        textDecoration: "none",
-        marginRight: "25px",
-      }}
-    >
-      Sign In
-    </a>
+    href="/login"
+    style={{
+      color: "#39FF14",
+      fontSize: "14px",
+      fontWeight: "bold",
+      textDecoration: "none",
+      cursor: "pointer",
+      marginRight: "25px",
+      transition: "color 0.3s",
+      whiteSpace: "nowrap",
+    }}
+    onMouseOver={(e) => (e.currentTarget.style.color = "#afa84c")}
+    onMouseOut={(e) => (e.currentTarget.style.color = "#39FF14")}
+>
+  Sign in
+</a>
   )}
   </div>
   {showDeleteModal && (
