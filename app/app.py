@@ -14,6 +14,7 @@ from tortoise.contrib.fastapi import register_tortoise
 from app.models import (
     DailyExpenseUpdate,
     DailyExpenseCreate,
+    DeleteAccountRequest,
     expensetpye_pydantic, expensetpye_pydantic_in, ExpenseType, ExpenseTypeUpdate,
     daily_expense_pydantic, daily_expense_pydantic_in,
     DailyExpense, DailyExpenseWithExpenseType, UserInfo,
@@ -828,3 +829,30 @@ async def auth(request: Request):
 
     react_base = (os.getenv("REACT_BASE_URL") or REACT_BASE_URL or "http://localhost:3000").rstrip("/")
     return RedirectResponse(url=f"{react_base}/")
+
+@app.delete("/api/auth/delete-account")
+async def delete_account(
+    request: Request,
+    body: DeleteAccountRequest | None = None,
+    user: dict = Depends(get_current_user),
+):
+    user_info = await get_or_create_user_info(user)
+
+    # If account has a password, require it
+    if user_info.password_hash:
+        if not body or not body.password:
+            raise HTTPException(status_code=400, detail="Password required to delete account")
+        if not verify_password(body.password, user_info.password_hash):
+            raise HTTPException(status_code=401, detail="Incorrect password")
+
+    deleted_expenses = await DailyExpense.filter(user_id=user_info.id).delete()
+    await user_info.delete()
+
+    request.session.pop("user", None)
+    request.session.clear()
+
+    return {
+        "status": "OK",
+        "message": "Account permanently deleted",
+        "deleted_expenses": deleted_expenses,
+    }

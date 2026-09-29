@@ -140,3 +140,6 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     username: str   # username or email
     password: str
+
+class DeleteAccountRequest(BaseModel):
+    password: str | None = None  # required only if user has password_hash
