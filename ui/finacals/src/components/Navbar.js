@@ -288,7 +288,7 @@ const handleDeleteAccount = async () => {
       transition: "color 0.3s",
       whiteSpace: "nowrap",
     }}
-    onMouseOver={(e) => (e.currentTarget.style.color = "#afa84c")}
+    onMouseOver={(e) => (e.currentTarget.style.color = "#FFDF00")}
     onMouseOut={(e) => (e.currentTarget.style.color = "#39FF14")}
 >
   Sign in
