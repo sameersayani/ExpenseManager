@@ -146,15 +146,49 @@ const handleDeleteAccount = async () => {
         <Navbar bg="dark" expand="lg" variant="dark" className="app-navbar">
         <div className="container-fluid app-navbar__inner">
           {/* Brand */}
-          <Navbar.Brand href="/" className="app-navbar__brand">
-          <img
-            src="/logo.png"  // Make sure the logo is inside the "public" folder
-            alt="Logo"
-            width="150"
-            height="48"
-          />{" "}
-          </Navbar.Brand>
-  
+          <Navbar.Brand href="/" className="app-navbar__brand flex items-center gap-3 py-1">
+          {/* Modernized Smart Expense Manager Logo using inline SVG */}
+          <div className="flex items-baseline tracking-wide select-none">
+            {/* "SM" */}
+            <span className="text-2xl font-black text-white font-sans uppercase">
+              sm
+            </span>
+            
+            {/* Innovative Geometric "A" Icon */}
+            <svg 
+              className="w-5 h-5 mx-[1px] inline-block self-center animate-pulse" 
+              viewBox="0 0 24 24" 
+              fill="none" 
+              xmlns="http://w3.org"
+              style={{ animationDuration: '3s' }}
+            >
+              {/* Upward financial growth trend combined with an 'A' shape */}
+              <path 
+                d="M12 3L3 18H7.5L12 9.5L16.5 18H21L12 3Z" 
+                fill="#FFDF00" 
+                className="drop-shadow-[0_0_6px_rgba(255,223,0,0.6)]"
+              />
+              <path 
+                d="M8.5 14H15.5L14.5 12H9.5L8.5 14Z" 
+                fill="#111827" 
+              />
+            </svg>
+
+            {/* "RT" */}
+            <span className="text-2xl font-black text-white font-sans uppercase mr-3">
+              rt
+            </span>
+
+            {/* Elegant Vertical Divider Line */}
+            <div className="h-5 w-[1px] bg-neutral-700 self-center hidden sm:block"></div>
+
+            {/* "EXPENSE MANAGER" in single-line modern utility font */}
+            <span className="text-[11px] font-semibold text-neutral-400 font-mono tracking-[0.2em] uppercase ml-3 hidden sm:inline-block transition-colors duration-300 hover:text-white">
+              Expense Manager
+            </span>
+          </div>
+        </Navbar.Brand>
+
           {/* Toggle for Small Screens */}
           <Navbar.Toggle aria-controls="navbar-nav" />
   
